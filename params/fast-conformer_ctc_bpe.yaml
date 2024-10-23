@@ -41,6 +41,8 @@
 
 name: "FastConformer-CTC-BPE"
 
+init_from_pretrained_model: "stt_en_fastconformer_ctc_large" 
+
 model:
   sample_rate: 16000
   log_prediction: true # enables logging sample predictions in the output during training
@@ -48,14 +50,14 @@ model:
   skip_nan_grad: false
 
   train_ds:
-    manifest_filepath: ???
+    manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_train_manifest.json
     sample_rate: ${model.sample_rate}
-    batch_size: 16 # you may increase batch_size if your memory allows
+    batch_size: 32 # you may increase batch_size if your memory allows
     shuffle: true
-    num_workers: 8
+    num_workers: 32
     pin_memory: true
-    max_duration: 16.7 # it is set for LibriSpeech, you may need to update it for your dataset
-    min_duration: 0.1
+    max_duration: 24.9 # it is set for LibriSpeech, you may need to update it for your dataset
+    min_duration: 1.42
     # tarred datasets
     is_tarred: false
     tarred_audio_filepaths: null
@@ -65,18 +67,18 @@ model:
     bucketing_batch_size: null
 
   validation_ds:
-    manifest_filepath: ???
+    manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest.json
     sample_rate: ${model.sample_rate}
-    batch_size: 16 # you may increase batch_size if your memory allows
+    batch_size: 32 # you may increase batch_size if your memory allows
     shuffle: false
     use_start_end_token: false
     num_workers: 8
     pin_memory: true
 
   test_ds:
-    manifest_filepath: null
+    manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest.json
     sample_rate: ${model.sample_rate}
-    batch_size: 16 # you may increase batch_size if your memory allows
+    batch_size: 32 # you may increase batch_size if your memory allows
     shuffle: false
     use_start_end_token: false
     num_workers: 8
@@ -85,7 +87,7 @@ model:
   # recommend vocab size of 128 or 256 when training on ~1k hr datasets and 1k vocab size on 10+k hr datasets
   # you may find more detail on how to train a tokenizer at: /scripts/tokenizers/process_asr_text_tokenizer.py
   tokenizer:
-    dir: ???  # path to directory which contains either tokenizer.model (bpe) or vocab.txt (wpe)
+    dir: /content/Fast-conformer-NVIDIA-Vivos/vocab_tokenizers/tokenizer_spe_bpe_v10000  # path to directory which contains either tokenizer.model (bpe) or vocab.txt (wpe)
     type: bpe  # Can be either bpe (SentencePiece tokenizer) or wpe (WordPiece tokenizer)
 
   preprocessor:
