@@ -1,5 +1,5 @@
 python /content/Fast-conformer-NVIDIA-Vivos/process_asr_text_tokenizer.py \
-  --data_file="/content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_scripts.json" \
+  --manifest="/content/Fast-conformer-NVIDIA-Vivos/data_train/scripts_manifest.json" \
   --data_root="/content/Fast-conformer-NVIDIA-Vivos/vocab_tokenizers/" \
   --vocab_size=10000 \
   --tokenizer="spe" \
