@@ -1,0 +1,226 @@
+[NeMo W 2024-10-23 14:58:55 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:254: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+      def forward(
+    
+[NeMo W 2024-10-23 14:58:55 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:265: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+      def backward(ctx, grad_output):
+    
+[NeMo W 2024-10-23 14:58:55 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:325: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+      def forward(
+    
+[NeMo W 2024-10-23 14:58:55 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:360: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+      def backward(ctx, grad_output):
+    
+[NeMo W 2024-10-23 14:59:02 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/hydra/_internal/hydra.py:119: UserWarning: Future Hydra versions will no longer change working directory at job runtime by default.
+    See https://hydra.cc/docs/1.2/upgrades/1.1_to_1.2/changes_to_job_working_dir/ for more information.
+      ret = run_job(
+    
+[NeMo I 2024-10-23 14:59:02 speech_to_text_ctc_bpe:78] Hydra config: name: FastConformer-CTC-BPE
+    init_from_pretrained_model: stt_en_fastconformer_ctc_large
+    model:
+      sample_rate: 16000
+      log_prediction: true
+      ctc_reduction: mean_volume
+      skip_nan_grad: false
+      train_ds:
+        manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_train_manifest.json
+        sample_rate: ${model.sample_rate}
+        batch_size: 32
+        shuffle: true
+        num_workers: 2
+        pin_memory: true
+        max_duration: 24.9
+        min_duration: 1.42
+        is_tarred: false
+        tarred_audio_filepaths: null
+        shuffle_n: 2048
+        bucketing_strategy: fully_randomized
+        bucketing_batch_size: null
+      validation_ds:
+        manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest.json
+        sample_rate: ${model.sample_rate}
+        batch_size: 32
+        shuffle: false
+        use_start_end_token: false
+        num_workers: 2
+        pin_memory: true
+      test_ds:
+        manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest.json
+        sample_rate: ${model.sample_rate}
+        batch_size: 32
+        shuffle: false
+        use_start_end_token: false
+        num_workers: 2
+        pin_memory: true
+      tokenizer:
+        dir: /content/Fast-conformer-NVIDIA-Vivos/vocab_tokenizers/tokenizer_spe_bpe_v10000
+        type: bpe
+      preprocessor:
+        _target_: nemo.collections.asr.modules.AudioToMelSpectrogramPreprocessor
+        sample_rate: 16000
+        normalize: per_feature
+        window_size: 0.025
+        window_stride: 0.01
+        window: hann
+        features: 80
+        n_fft: 512
+        log: true
+        frame_splicing: 1
+        dither: 1.0e-05
+        pad_to: 0
+        pad_value: 0.0
+      spec_augment:
+        _target_: nemo.collections.asr.modules.SpectrogramAugmentation
+        freq_masks: 2
+        time_masks: 10
+        freq_width: 27
+        time_width: 0.05
+      encoder:
+        _target_: nemo.collections.asr.modules.ConformerEncoder
+        feat_in: ${model.preprocessor.features}
+        feat_out: -1
+        n_layers: 19
+        d_model: 512
+        subsampling: dw_striding
+        subsampling_factor: 8
+        subsampling_conv_channels: 256
+        causal_downsampling: false
+        ff_expansion_factor: 4
+        self_attention_model: rel_pos
+        n_heads: 8
+        att_context_size:
+        - -1
+        - -1
+        att_context_style: regular
+        xscaling: true
+        untie_biases: true
+        pos_emb_max_len: 5000
+        conv_kernel_size: 9
+        conv_norm_type: batch_norm
+        conv_context_size: null
+        dropout: 0.1
+        dropout_pre_encoder: 0.1
+        dropout_emb: 0.0
+        dropout_att: 0.1
+        stochastic_depth_drop_prob: 0.0
+        stochastic_depth_mode: linear
+        stochastic_depth_start_layer: 1
+      decoder:
+        _target_: nemo.collections.asr.modules.ConvASRDecoder
+        feat_in: null
+        num_classes: -1
+        vocabulary: []
+      interctc:
+        loss_weights: []
+        apply_at_layers: []
+      optim:
+        name: adamw
+        lr: 0.001
+        betas:
+        - 0.9
+        - 0.98
+        weight_decay: 0.001
+        sched:
+          name: CosineAnnealing
+          warmup_steps: 15000
+          warmup_ratio: null
+          min_lr: 0.0001
+    trainer:
+      devices: -1
+      num_nodes: 1
+      max_epochs: 1000
+      max_steps: -1
+      val_check_interval: 1.0
+      accelerator: auto
+      strategy: ddp
+      accumulate_grad_batches: 1
+      gradient_clip_val: 0.0
+      precision: 32
+      log_every_n_steps: 10
+      enable_progress_bar: true
+      num_sanity_val_steps: 0
+      check_val_every_n_epoch: 1
+      sync_batchnorm: true
+      enable_checkpointing: false
+      logger: false
+      benchmark: false
+    exp_manager:
+      exp_dir: null
+      name: ${name}
+      create_tensorboard_logger: true
+      create_checkpoint_callback: true
+      checkpoint_callback_params:
+        monitor: val_wer
+        mode: min
+        save_top_k: 40
+        always_save_nemo: true
+      resume_from_checkpoint: /content/driver/Back_up/training_fast_conformer/Fast-conformerASR-NVIDIA/nemo_experiments/FastConformer-CTC-BPE/checkpoints/FastConformer-CTC-BPE--val_wer=0.0458-epoch=78.ckpt
+      resume_if_exists: true
+      resume_ignore_no_checkpoint: true
+      create_wandb_logger: false
+      wandb_logger_kwargs:
+        name: null
+        project: null
+    
+[NeMo W 2024-10-23 14:59:02 exp_manager:759] No version folders would be created under the log folder as 'resume_if_exists' is enabled.
+[NeMo W 2024-10-23 14:59:02 exp_manager:616] There were no checkpoints found in checkpoint_dir or no checkpoint folder at checkpoint_dir :/content/Fast-conformer-NVIDIA-Vivos/nemo_experiments/FastConformer-CTC-BPE/checkpoints. Training from /content/driver/Back_up/training_fast_conformer/Fast-conformerASR-NVIDIA/nemo_experiments/FastConformer-CTC-BPE/checkpoints/FastConformer-CTC-BPE--val_wer=0.0458-epoch=78.ckpt.
+[NeMo I 2024-10-23 14:59:02 exp_manager:644] Resuming training from checkpoint: /content/driver/Back_up/training_fast_conformer/Fast-conformerASR-NVIDIA/nemo_experiments/FastConformer-CTC-BPE/checkpoints/FastConformer-CTC-BPE--val_wer=0.0458-epoch=78.ckpt
+[NeMo I 2024-10-23 14:59:02 exp_manager:396] Experiments will be logged at /content/Fast-conformer-NVIDIA-Vivos/nemo_experiments/FastConformer-CTC-BPE
+[NeMo I 2024-10-23 14:59:02 exp_manager:842] TensorboardLogger has been set up
+[NeMo I 2024-10-23 14:59:02 mixins:172] Tokenizer SentencePieceTokenizer initialized with 7583 tokens
+[NeMo I 2024-10-23 14:59:04 ctc_bpe_models:66] 
+    Replacing placeholder number of classes (-1) with actual number of classes - 7583
+[NeMo I 2024-10-23 14:59:06 collections:196] Dataset loaded with 11611 files totalling 14.90 hours
+[NeMo I 2024-10-23 14:59:06 collections:197] 49 files were filtered totalling 0.02 hours
+[NeMo I 2024-10-23 14:59:06 collections:196] Dataset loaded with 760 files totalling 0.75 hours
+[NeMo I 2024-10-23 14:59:06 collections:197] 0 files were filtered totalling 0.00 hours
+[NeMo I 2024-10-23 14:59:07 collections:196] Dataset loaded with 760 files totalling 0.75 hours
+[NeMo I 2024-10-23 14:59:07 collections:197] 0 files were filtered totalling 0.00 hours
+[NeMo I 2024-10-23 14:59:07 features:289] PADDING: 0
+[NeMo I 2024-10-23 14:59:10 cloud:58] Found existing object /root/.cache/torch/NeMo/NeMo_1.23.0/stt_en_fastconformer_ctc_large/00a071a9dac048acc3aeea942b0bfa40/stt_en_fastconformer_ctc_large.nemo.
+[NeMo I 2024-10-23 14:59:10 cloud:64] Re-using file from: /root/.cache/torch/NeMo/NeMo_1.23.0/stt_en_fastconformer_ctc_large/00a071a9dac048acc3aeea942b0bfa40/stt_en_fastconformer_ctc_large.nemo
+[NeMo I 2024-10-23 14:59:10 common:924] Instantiating model from pre-trained checkpoint
+[NeMo I 2024-10-23 14:59:12 mixins:172] Tokenizer SentencePieceTokenizer initialized with 1024 tokens
+[NeMo W 2024-10-23 14:59:13 modelPT:165] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
+    Train config : 
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 1
+    shuffle: true
+    num_workers: 8
+    pin_memory: true
+    use_start_end_token: false
+    trim_silence: false
+    max_duration: 20
+    min_duration: 0.1
+    is_tarred: false
+    tarred_audio_filepaths: null
+    shuffle_n: 2048
+    bucketing_strategy: fully_randomized
+    bucketing_batch_size: null
+    
+[NeMo W 2024-10-23 14:59:13 modelPT:172] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s). 
+    Validation config : 
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 32
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+    use_start_end_token: false
+    max_duration: 20
+    
+[NeMo W 2024-10-23 14:59:13 modelPT:178] Please call the ModelPT.setup_test_data() or ModelPT.setup_multiple_test_data() method and provide a valid configuration file to setup the test data loader(s).
+    Test config : 
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 16
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+    use_start_end_token: false
+    
+[NeMo I 2024-10-23 14:59:13 features:289] PADDING: 0
+[NeMo W 2024-10-23 14:59:14 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/nemo/core/connectors/save_restore_connector.py:571: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+      return torch.load(model_weights, map_location='cpu')
+    
+[NeMo I 2024-10-23 14:59:15 save_restore_connector:249] Model EncDecCTCModelBPE was successfully restored from /root/.cache/torch/NeMo/NeMo_1.23.0/stt_en_fastconformer_ctc_large/00a071a9dac048acc3aeea942b0bfa40/stt_en_fastconformer_ctc_large.nemo.

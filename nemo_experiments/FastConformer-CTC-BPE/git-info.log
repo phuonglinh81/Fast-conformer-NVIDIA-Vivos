@@ -1,0 +1,20 @@
+commit hash: 20c5ca99d792462057b3f32be23af016c24b4dbc
+diff --git a/params/fast-conformer_ctc_bpe.yaml b/params/fast-conformer_ctc_bpe.yaml
+index db12789..5063599 100644
+--- a/params/fast-conformer_ctc_bpe.yaml
++++ b/params/fast-conformer_ctc_bpe.yaml
+@@ -223,11 +223,11 @@ exp_manager:
+     save_top_k: 40
+     always_save_nemo: True # saves the checkpoints as nemo files instead of PTL checkpoints
+ 
+-  resume_from_checkpoint: null
++  resume_from_checkpoint: /content/drive/MyDrive/Back_up/training_fast_conformer/Fast-conformer-NVIDIA-Vivos/nemo_experiments/FastConformer-CTC-BPE/checkpoints/FastConformer-CTC-BPE--val_wer=0.0458-epoch=78.ckpt
+   # The path to a checkpoint file to continue the training, restores the whole state including the epoch, step, LR schedulers, apex, etc.
+   # you need to set these two to True to continue the training
+-  resume_if_exists: false
+-  resume_ignore_no_checkpoint: false
++  resume_if_exists: true
++  resume_ignore_no_checkpoint: true
+ 
+   # You may use this section to create a W&B logger
+   create_wandb_logger: false
