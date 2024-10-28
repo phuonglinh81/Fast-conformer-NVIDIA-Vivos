@@ -72,6 +72,7 @@ from nemo.core.config import hydra_runner
 from nemo.utils import logging
 from nemo.utils.exp_manager import exp_manager
 from confidence_callback import ConfidenceScoreCallback
+from ctc_loss_callback import CTCLossCallback
 
 
 @hydra_runner(config_path="../conf/citrinet/", config_name="fast-conformer_ctc_bpe")
@@ -84,9 +85,10 @@ def main(cfg):
 
     # Khởi tạo callback ConfidenceScoreCallback
     confidence_callback = ConfidenceScoreCallback(asr_model)
+    ctc_loss_callback = CTCLossCallback()
 
     # Thêm callback vào trainer
-    trainer.callbacks.append(confidence_callback)
+    trainer.callbacks.extend([confidence_callback, ctc_loss_callback])
 
     # Initialize the weights of the model from another model, if provided via config
     asr_model.maybe_init_from_pretrained_checkpoint(cfg)
