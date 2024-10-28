@@ -1,0 +1,1 @@
+/content/Fast-conformer-NVIDIA-Vivos/speech_to_text_ctc_bpe.py --config-path=/content/Fast-conformer-NVIDIA-Vivos/params --config-name=fast-conformer_ctc_bpe

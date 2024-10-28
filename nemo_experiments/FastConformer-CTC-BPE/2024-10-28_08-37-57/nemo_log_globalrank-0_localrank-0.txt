@@ -1,0 +1,343 @@
+[NeMo W 2024-10-28 08:37:50 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:254: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+      def forward(
+    
+[NeMo W 2024-10-28 08:37:50 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:265: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+      def backward(ctx, grad_output):
+    
+[NeMo W 2024-10-28 08:37:50 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:325: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
+      def forward(
+    
+[NeMo W 2024-10-28 08:37:50 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/megatron/core/tensor_parallel/layers.py:360: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
+      def backward(ctx, grad_output):
+    
+[NeMo W 2024-10-28 08:37:57 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/hydra/_internal/hydra.py:119: UserWarning: Future Hydra versions will no longer change working directory at job runtime by default.
+    See https://hydra.cc/docs/1.2/upgrades/1.1_to_1.2/changes_to_job_working_dir/ for more information.
+      ret = run_job(
+    
+[NeMo I 2024-10-28 08:37:57 speech_to_text_ctc_bpe:80] Hydra config: name: FastConformer-CTC-BPE
+    init_from_pretrained_model: stt_en_fastconformer_ctc_large
+    model:
+      sample_rate: 16000
+      log_prediction: true
+      ctc_reduction: mean_volume
+      skip_nan_grad: false
+      train_ds:
+        manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_train_manifest.json
+        sample_rate: ${model.sample_rate}
+        batch_size: 16
+        shuffle: true
+        num_workers: 2
+        pin_memory: true
+        max_duration: 24.9
+        min_duration: 1.42
+        is_tarred: false
+        tarred_audio_filepaths: null
+        shuffle_n: 2048
+        bucketing_strategy: fully_randomized
+        bucketing_batch_size: null
+      validation_ds:
+        manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_valid_manifest.json
+        sample_rate: ${model.sample_rate}
+        batch_size: 16
+        shuffle: false
+        use_start_end_token: false
+        num_workers: 2
+        pin_memory: true
+      test_ds:
+        manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest.json
+        sample_rate: ${model.sample_rate}
+        batch_size: 16
+        shuffle: false
+        use_start_end_token: false
+        num_workers: 2
+        pin_memory: true
+      tokenizer:
+        dir: /content/Fast-conformer-NVIDIA-Vivos/vocab_tokenizers/tokenizer_spe_bpe_v1024
+        type: bpe
+      preprocessor:
+        _target_: nemo.collections.asr.modules.AudioToMelSpectrogramPreprocessor
+        sample_rate: 16000
+        normalize: per_feature
+        window_size: 0.025
+        window_stride: 0.01
+        window: hann
+        features: 80
+        n_fft: 512
+        log: true
+        frame_splicing: 1
+        dither: 1.0e-05
+        pad_to: 0
+        pad_value: 0.0
+      spec_augment:
+        _target_: nemo.collections.asr.modules.SpectrogramAugmentation
+        freq_masks: 2
+        time_masks: 10
+        freq_width: 27
+        time_width: 0.05
+      encoder:
+        _target_: nemo.collections.asr.modules.ConformerEncoder
+        feat_in: ${model.preprocessor.features}
+        feat_out: -1
+        n_layers: 19
+        d_model: 512
+        subsampling: dw_striding
+        subsampling_factor: 8
+        subsampling_conv_channels: 256
+        causal_downsampling: false
+        ff_expansion_factor: 4
+        self_attention_model: rel_pos
+        n_heads: 8
+        att_context_size:
+        - -1
+        - -1
+        att_context_style: regular
+        xscaling: true
+        untie_biases: true
+        pos_emb_max_len: 5000
+        conv_kernel_size: 9
+        conv_norm_type: batch_norm
+        conv_context_size: null
+        dropout: 0.1
+        dropout_pre_encoder: 0.1
+        dropout_emb: 0.0
+        dropout_att: 0.1
+        stochastic_depth_drop_prob: 0.0
+        stochastic_depth_mode: linear
+        stochastic_depth_start_layer: 1
+      decoder:
+        _target_: nemo.collections.asr.modules.ConvASRDecoder
+        feat_in: null
+        num_classes: -1
+        vocabulary: []
+      interctc:
+        loss_weights: []
+        apply_at_layers: []
+      optim:
+        name: adamw
+        lr: 0.001
+        betas:
+        - 0.9
+        - 0.98
+        weight_decay: 0.001
+        sched:
+          name: CosineAnnealing
+          warmup_steps: 15000
+          warmup_ratio: null
+          min_lr: 0.0001
+    trainer:
+      devices: -1
+      num_nodes: 1
+      max_epochs: 5
+      max_steps: -1
+      val_check_interval: 1.0
+      accelerator: auto
+      strategy: ddp
+      accumulate_grad_batches: 1
+      gradient_clip_val: 0.0
+      precision: 32
+      log_every_n_steps: 10
+      enable_progress_bar: true
+      num_sanity_val_steps: 0
+      check_val_every_n_epoch: 1
+      sync_batchnorm: true
+      enable_checkpointing: false
+      logger: false
+      benchmark: false
+    exp_manager:
+      exp_dir: null
+      name: ${name}
+      create_tensorboard_logger: true
+      create_checkpoint_callback: true
+      checkpoint_callback_params:
+        monitor: val_wer
+        mode: min
+        save_top_k: 40
+        always_save_nemo: true
+      resume_from_checkpoint: null
+      resume_if_exists: false
+      resume_ignore_no_checkpoint: false
+      create_wandb_logger: false
+      wandb_logger_kwargs:
+        name: null
+        project: null
+    
+[NeMo I 2024-10-28 08:37:57 exp_manager:396] Experiments will be logged at /content/Fast-conformer-NVIDIA-Vivos/nemo_experiments/FastConformer-CTC-BPE/2024-10-28_08-37-57
+[NeMo I 2024-10-28 08:37:57 exp_manager:842] TensorboardLogger has been set up
+[NeMo I 2024-10-28 08:37:58 mixins:172] Tokenizer SentencePieceTokenizer initialized with 1024 tokens
+[NeMo I 2024-10-28 08:37:58 ctc_bpe_models:66] 
+    Replacing placeholder number of classes (-1) with actual number of classes - 1024
+[NeMo I 2024-10-28 08:37:58 collections:196] Dataset loaded with 10453 files totalling 13.43 hours
+[NeMo I 2024-10-28 08:37:58 collections:197] 41 files were filtered totalling 0.01 hours
+[NeMo I 2024-10-28 08:37:59 collections:196] Dataset loaded with 1166 files totalling 1.47 hours
+[NeMo I 2024-10-28 08:37:59 collections:197] 0 files were filtered totalling 0.00 hours
+[NeMo I 2024-10-28 08:37:59 collections:196] Dataset loaded with 760 files totalling 0.75 hours
+[NeMo I 2024-10-28 08:37:59 collections:197] 0 files were filtered totalling 0.00 hours
+[NeMo I 2024-10-28 08:37:59 features:289] PADDING: 0
+[NeMo I 2024-10-28 08:38:00 cloud:58] Found existing object /root/.cache/torch/NeMo/NeMo_1.23.0/stt_en_fastconformer_ctc_large/00a071a9dac048acc3aeea942b0bfa40/stt_en_fastconformer_ctc_large.nemo.
+[NeMo I 2024-10-28 08:38:00 cloud:64] Re-using file from: /root/.cache/torch/NeMo/NeMo_1.23.0/stt_en_fastconformer_ctc_large/00a071a9dac048acc3aeea942b0bfa40/stt_en_fastconformer_ctc_large.nemo
+[NeMo I 2024-10-28 08:38:00 common:924] Instantiating model from pre-trained checkpoint
+[NeMo I 2024-10-28 08:38:02 mixins:172] Tokenizer SentencePieceTokenizer initialized with 1024 tokens
+[NeMo W 2024-10-28 08:38:02 modelPT:165] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
+    Train config : 
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 1
+    shuffle: true
+    num_workers: 8
+    pin_memory: true
+    use_start_end_token: false
+    trim_silence: false
+    max_duration: 20
+    min_duration: 0.1
+    is_tarred: false
+    tarred_audio_filepaths: null
+    shuffle_n: 2048
+    bucketing_strategy: fully_randomized
+    bucketing_batch_size: null
+    
+[NeMo W 2024-10-28 08:38:02 modelPT:172] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s). 
+    Validation config : 
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 32
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+    use_start_end_token: false
+    max_duration: 20
+    
+[NeMo W 2024-10-28 08:38:02 modelPT:178] Please call the ModelPT.setup_test_data() or ModelPT.setup_multiple_test_data() method and provide a valid configuration file to setup the test data loader(s).
+    Test config : 
+    manifest_filepath: null
+    sample_rate: 16000
+    batch_size: 16
+    shuffle: false
+    num_workers: 8
+    pin_memory: true
+    use_start_end_token: false
+    
+[NeMo I 2024-10-28 08:38:02 features:289] PADDING: 0
+[NeMo W 2024-10-28 08:38:05 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/nemo/core/connectors/save_restore_connector.py:571: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+      return torch.load(model_weights, map_location='cpu')
+    
+[NeMo I 2024-10-28 08:38:05 save_restore_connector:249] Model EncDecCTCModelBPE was successfully restored from /root/.cache/torch/NeMo/NeMo_1.23.0/stt_en_fastconformer_ctc_large/00a071a9dac048acc3aeea942b0bfa40/stt_en_fastconformer_ctc_large.nemo.
+[NeMo I 2024-10-28 08:38:05 modelPT:1277] Model checkpoint restored from pretrained checkpoint with name : `stt_en_fastconformer_ctc_large`
+[NeMo I 2024-10-28 08:38:09 modelPT:723] Optimizer config = AdamW (
+    Parameter Group 0
+        amsgrad: False
+        betas: [0.9, 0.98]
+        capturable: False
+        differentiable: False
+        eps: 1e-08
+        foreach: None
+        fused: None
+        lr: 0.001
+        maximize: False
+        weight_decay: 0.001
+    )
+[NeMo I 2024-10-28 08:38:09 lr_scheduler:915] Scheduler "<nemo.core.optim.lr_scheduler.CosineAnnealing object at 0x7ece95c611e0>" 
+    will be used during training (effective maximum steps = 3270) - 
+    Parameters : 
+    (warmup_steps: 15000
+    warmup_ratio: null
+    min_lr: 0.0001
+    max_steps: 3270
+    )
+[NeMo W 2024-10-28 08:38:46 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/preprocessing/features.py:417: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+      with torch.cuda.amp.autocast(enabled=False):
+    
+[NeMo I 2024-10-28 08:39:44 wer:318] 
+    
+[NeMo I 2024-10-28 08:39:44 wer:319] reference:phố nhoen nhoét và mưa van vát một lối nói thông minh
+[NeMo I 2024-10-28 08:39:44 wer:320] predicted:phía phí trở tửít đóámiệu cuụ chiềuừngámệ với trở vớiắm nhiềuích trở đáng khỏe vấn lã trở ảnh cùngen trởắmiểuản trở nội sốngàyừng hoề với đối ngoài vụ vẫn như cùngàyinh chungiênám thầy tối sống
+[NeMo I 2024-10-28 08:40:44 wer:318] 
+    
+[NeMo I 2024-10-28 08:40:44 wer:319] reference:ngay cả chi phí cho những vật dụng văn phòng cũng sẽ bị giảm xuống
+[NeMo I 2024-10-28 08:40:44 wer:320] predicted:hóa đối nhiềuẫn thu bản ba sáu cách sao tuần tham bỏ giúpẫn biệtển hóa chúng dự vềắp chúngìn chúng dựng hóa ảnh kéẫn đáng sĩng ké học
+[NeMo I 2024-10-28 08:41:41 wer:318] 
+    
+[NeMo I 2024-10-28 08:41:41 wer:319] reference:do đó khi chơi chung với bạn bè cùng lứa chúng thường tỏ ra thiếu tự tin
+[NeMo I 2024-10-28 08:41:41 wer:320] predicted:đâu biệt tiế khó phẩmợ sau gặpời ngồi sauây cuị một xinốt ghắpảnắm việc chiếc thơ sau yêu thi cònây thu sauấmặc ứng lời ứnginh vấn nghiệ thiối nằmển tàiinh kỹ mỗiển thái việt4ếuámầặcữngống phần nhỏinh thành
+[NeMo I 2024-10-28 08:42:39 wer:318] 
+    
+[NeMo I 2024-10-28 08:42:39 wer:319] reference:bạn có thể ngắm thoả thích các vườn nhãn vườn xoài vườn chanh
+[NeMo I 2024-10-28 08:42:39 wer:320] predicted:nhờ thức nàyùng gọi thơọngặc4 biệt pưởngăn thành hết thứ lượng chủ tháiừng thứcônờiuy phầnuyên thứcươi kỹácọc kéôngả gặp chúngển sáu
+[NeMo I 2024-10-28 08:43:37 wer:318] 
+    
+[NeMo I 2024-10-28 08:43:37 wer:319] reference:chí tài là thần tượng của em
+[NeMo I 2024-10-28 08:43:37 wer:320] predicted:ải đây lớn coi việtà chiềung tayài bao vấn về ho điều hóaắp nênòng
+[NeMo I 2024-10-28 08:44:34 wer:318] 
+    
+[NeMo I 2024-10-28 08:44:34 wer:319] reference:cái tiệm ăn này ngày xưa tôi phải làm việc cật lực hàng tháng trời mới dám mời nàng bước vào nhân sinh nhật
+[NeMo I 2024-10-28 08:44:34 wer:320] predicted:iểu đốiắm nóiắmời làmọt trưởng chuyên việùngướ cao nói trởiểu danh phát minh đo nghĩa việc thu mắc chúng nghề tự thuắm lã luônược hóa đángờiauính yêu mất thuướăn thu hóa bốnácùng hóaời làmăn
+[NeMo I 2024-10-28 08:45:31 wer:318] 
+    
+[NeMo I 2024-10-28 08:45:31 wer:319] reference:hai bàn chân tí xíu kia mới đưa được các em về tới nhà
+[NeMo I 2024-10-28 08:45:31 wer:320] predicted:đối đốiómỉnhôn nghôiuy gặp sốngùngắpắp thế c
+[NeMo I 2024-10-28 08:46:26 wer:318] 
+    
+[NeMo I 2024-10-28 08:46:26 wer:319] reference:làm như vậy người ta cho rằng mình đã làm được gì đó giúp đem mưa đến cho mùa màng trên đồng
+[NeMo I 2024-10-28 08:46:26 wer:320] predicted:sản tối piểu4 thay ra gi ho nh mươiẩ cùngơnch giáong thứ nênợ thức chiều
+[NeMo I 2024-10-28 08:47:24 wer:318] 
+    
+[NeMo I 2024-10-28 08:47:24 wer:319] reference:trọng tài phạt thẻ đỏ
+[NeMo I 2024-10-28 08:47:24 wer:320] predicted:ượtngácng chíao lần
+[NeMo I 2024-10-28 08:48:22 wer:318] 
+    
+[NeMo I 2024-10-28 08:48:22 wer:319] reference:được lọt vào ống kính nhiều tây du lịch
+[NeMo I 2024-10-28 08:48:22 wer:320] predicted:qu: đặc yêu trở tu vụngăn
+[NeMo I 2024-10-28 08:49:19 wer:318] 
+    
+[NeMo I 2024-10-28 08:49:19 wer:319] reference:không có câu trả lời rõ ràng và chúng tôi đành hiểu rằng họ đang sống lây lất
+[NeMo I 2024-10-28 08:49:19 wer:320] predicted:ướ kỹ gặpang đặt nhất chiều lý kinh đó ứngôi thànhóm rauy k nghĩa đóổ anháchếuối
+[NeMo I 2024-10-28 08:50:16 wer:318] 
+    
+[NeMo I 2024-10-28 08:50:16 wer:319] reference:hiện chưa thể nói chính xác cấp ủy địa phương đang yêu cầu số cán bộ có tiêu cực kiểm điểm cuối tháng mới có kết quả
+[NeMo I 2024-10-28 08:50:16 wer:320] predicted:giácễn chúngóm tuầnắn hành hoặcẩ về giác truy cùng mang bao mangắmông yây đầuinh tiếiểu chúng điều trưởng chúngiện có đặt
+[NeMo I 2024-10-28 08:51:15 wer:318] 
+    
+[NeMo I 2024-10-28 08:51:15 wer:319] reference:báo cáo này xem xét các trở ngại mà doanh nghiệp gặp trong và sau quá trình đăng ký
+[NeMo I 2024-10-28 08:51:15 wer:320] predicted:ần trưởngệ vô mang mangàốiính khoắcướôi đo sử từng đó không c cùng
+[NeMo I 2024-10-28 08:52:10 wer:318] 
+    
+[NeMo I 2024-10-28 08:52:10 wer:319] reference:đường phố được trang trí lại rực vàng màu hoa mai
+[NeMo I 2024-10-28 08:52:10 wer:320] predicted:ấuông thanh hóa giờ sáuiếmọien điều sống giáoặcữngừa sốngẳng làm
+[NeMo I 2024-10-28 08:53:08 wer:318] 
+    
+[NeMo I 2024-10-28 08:53:08 wer:319] reference:để có mề đay cài dưới gối nằm thì mẹ vẫn
+[NeMo I 2024-10-28 08:53:08 wer:320] predicted:m cùng của câu kỹ đáng gặp hay sau thơaiằng
+[NeMo I 2024-10-28 08:54:04 wer:318] 
+    
+[NeMo I 2024-10-28 08:54:04 wer:319] reference:chúng tôi có một đội hình mạnh để tìm đến chiến thắng
+[NeMo I 2024-10-28 08:54:04 wer:320] predicted:nên họ huy khỏe ph vềuống cao nên cháu chuyênẩẫn mườiằnguyên cùng phát ông dựngng
+[NeMo I 2024-10-28 08:54:59 wer:318] 
+    
+[NeMo I 2024-10-28 08:54:59 wer:319] reference:đề nghị đảm nhận những công việc ít ứng viên muốn làm
+[NeMo I 2024-10-28 08:54:59 wer:320] predicted:âu gì truyở được và dài con nóiếnóc
+[NeMo I 2024-10-28 08:55:57 wer:318] 
+    
+[NeMo I 2024-10-28 08:55:57 wer:319] reference:anh chị cứ uống nước đi em sẽ nói dài dài
+[NeMo I 2024-10-28 08:55:57 wer:320] predicted:ô nhưng bằng lần thamệả cách trẻọiiểu đang tối lần
+[NeMo I 2024-10-28 08:56:55 wer:318] 
+    
+[NeMo I 2024-10-28 08:56:55 wer:319] reference:đã trong tình trạng ổn và có thể xuất viện trong một vài ngày tới
+[NeMo I 2024-10-28 08:56:55 wer:320] predicted:nên cao động chiếcưởậniện bắtầ quời mươi đó địnhưởngngơn cao điện nhiều vô
+[NeMo I 2024-10-28 08:57:54 wer:318] 
+    
+[NeMo I 2024-10-28 08:57:54 wer:319] reference:da tiếp xúc với tia tử ngoại trong thời gian dài
+[NeMo I 2024-10-28 08:57:54 wer:320] predicted:b dàian nghông chuẩn tìm cũngặ kho thưông gặp hai
+[NeMo I 2024-10-28 08:58:50 wer:318] 
+    
+[NeMo I 2024-10-28 08:58:50 wer:319] reference:bây giờ thì tôi biết rằng tôn giáo chỉ là công cụ để người ta xin xỏ mà không cho lại ông bạn của tôi cái gì
+[NeMo I 2024-10-28 08:58:50 wer:320] predicted:sởiết nghĩa điều lớn hoa đượcính rồi việc việc bâyiểu  c dàiẩ này tết suốt n dùng raót mỹ chuyênược cóổi qua câu nayẳ
+[NeMo I 2024-10-28 08:59:46 wer:318] 
+    
+[NeMo I 2024-10-28 08:59:46 wer:319] reference:sau sao mai điểm hẹn
+[NeMo I 2024-10-28 08:59:46 wer:320] predicted:nhậpêu đángácai ra tay phần đángà viên
+[NeMo I 2024-10-28 09:00:43 wer:318] 
+    
+[NeMo I 2024-10-28 09:00:43 wer:319] reference:việc thay đổi này chưa có ý kiến của thủ tướng
+[NeMo I 2024-10-28 09:00:43 wer:320] predicted:ôngơn trách y của nhậpận hai
+[NeMo W 2024-10-28 09:01:18 nemo_logging:349] /usr/local/lib/python3.10/dist-packages/pytorch_lightning/trainer/call.py:53: UserWarning: Detected KeyboardInterrupt, attempting graceful shutdown...
+      rank_zero_warn("Detected KeyboardInterrupt, attempting graceful shutdown...")
+    

@@ -1,0 +1,27 @@
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+`Trainer(val_check_interval=1.0)` was configured so validation will run at the end of the training epoch..
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 1 processes
+----------------------------------------------------------------------------------------------------
+
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name              | Type                              | Params
+------------------------------------------------------------------------
+0 | preprocessor      | AudioToMelSpectrogramPreprocessor | 0     
+1 | encoder           | ConformerEncoder                  | 121 M 
+2 | decoder           | ConvASRDecoder                    | 525 K 
+3 | loss              | CTCLoss                           | 0     
+4 | spec_augmentation | SpectrogramAugmentation           | 0     
+5 | wer               | WER                               | 0     
+------------------------------------------------------------------------
+121 M     Trainable params
+0         Non-trainable params
+121 M     Total params
+487.651   Total estimated model params size (MB)
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+[rank: 0] Received SIGTERM: 15
