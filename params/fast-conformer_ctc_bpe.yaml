@@ -68,7 +68,7 @@ model:
     bucketing_batch_size: null
 
   validation_ds:
-    manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest.json
+    manifest_filepath: /content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_valid_manifest.json
     sample_rate: ${model.sample_rate}
     batch_size: 16 # you may increase batch_size if your memory allows
     shuffle: false
