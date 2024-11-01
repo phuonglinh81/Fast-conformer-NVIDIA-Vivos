@@ -72,13 +72,24 @@ from nemo.core.config import hydra_runner
 from nemo.utils import logging
 from nemo.utils.exp_manager import exp_manager
 from confidence_callback import ConfidenceScoreCallback
-
+import wandb
+from datetime import datetime
 
 @hydra_runner(config_path="../conf/citrinet/", config_name="fast-conformer_ctc_bpe")
 def main(cfg):
     logging.info(f'Hydra config: {OmegaConf.to_yaml(cfg)}')
 
     trainer = pl.Trainer(**cfg.trainer)
+
+    # Thiết lập exp_manager để tự động ghi log với W&B
+    cfg.exp_manager.create_wandb_logger = True
+    cfg.exp_manager.wandb_logger_kwargs = {
+        "project": "fast-conformer-vivos",
+        "name": experiment_name
+    }
+
+    experiment_name = f"fast-conformer_lr{cfg.model.optim.lr}_epochs{cfg.trainer.max_epochs}"
+
     exp_manager(trainer, cfg.get("exp_manager", None))
     asr_model = EncDecCTCModelBPE(cfg=cfg.model, trainer=trainer)
 
@@ -97,6 +108,8 @@ def main(cfg):
         if asr_model.prepare_test(trainer):
             trainer.test(asr_model)
 
+    # Kết thúc phiên W&B sau khi huấn luyện hoàn tất
+    wandb.finish()
 
 if __name__ == '__main__':
     main()
