@@ -71,12 +71,13 @@ from nemo.collections.asr.models.ctc_bpe_models import EncDecCTCModelBPE
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
 from nemo.utils.exp_manager import exp_manager
-from confidence_callback import ConfidenceScoreCallback
+# from confidence_callback import ConfidenceScoreCallback
 import wandb
 from datetime import datetime
 
 @hydra_runner(config_path="../conf/citrinet/", config_name="fast-conformer_ctc_bpe")
 def main(cfg):
+    experiment_name = f"fast-conformer_lr{cfg.model.optim.lr}_epochs{cfg.trainer.max_epochs}"
     logging.info(f'Hydra config: {OmegaConf.to_yaml(cfg)}')
 
     trainer = pl.Trainer(**cfg.trainer)
@@ -88,16 +89,15 @@ def main(cfg):
         "name": experiment_name
     }
 
-    experiment_name = f"fast-conformer_lr{cfg.model.optim.lr}_epochs{cfg.trainer.max_epochs}"
 
     exp_manager(trainer, cfg.get("exp_manager", None))
     asr_model = EncDecCTCModelBPE(cfg=cfg.model, trainer=trainer)
 
     # Khởi tạo callback ConfidenceScoreCallback
-    confidence_callback = ConfidenceScoreCallback(asr_model)
+    # confidence_callback = ConfidenceScoreCallback(asr_model)
 
     # Thêm callback vào trainer
-    trainer.callbacks.extend(confidence_callback)
+    # trainer.callbacks.extend(confidence_callback)
 
     # Initialize the weights of the model from another model, if provided via config
     asr_model.maybe_init_from_pretrained_checkpoint(cfg)
