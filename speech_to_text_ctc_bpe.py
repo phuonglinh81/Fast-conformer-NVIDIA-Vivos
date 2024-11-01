@@ -74,6 +74,40 @@ from nemo.utils.exp_manager import exp_manager
 # from confidence_callback import ConfidenceScoreCallback
 import wandb
 from datetime import datetime
+import pytorch_lightning as pl
+import torch
+
+class ConfidenceScoreCallback(pl.Callback):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+    
+    def on_validation_epoch_end(self, trainer, pl_module):
+        # Tính confidence score cho mỗi batch trong tập validation
+        total_confidence_score = 0
+        num_batches = 0
+
+        for batch in trainer.val_dataloaders[0]:
+            inputs, labels = batch
+            logits = self.model(inputs)  # Dự đoán từ mô hình
+            
+            # Tính toán confidence cho mỗi từ hoặc câu từ logits
+            confidence_score = self.calculate_confidence(logits)
+            total_confidence_score += confidence_score
+            num_batches += 1
+        
+        # Tính điểm confidence trung bình cho epoch
+        average_confidence_score = total_confidence_score / num_batches
+        
+        # Log điểm confidence vào W&B
+        if trainer.logger:
+            trainer.logger.experiment.log({"confidence_score": average_confidence_score})
+    
+    def calculate_confidence(self, logits):
+        # Ví dụ tính confidence score từ logits
+        probabilities = torch.softmax(logits, dim=-1)
+        confidence_score = probabilities.max(dim=-1).values.mean().item()
+        return confidence_score
 
 @hydra_runner(config_path="../conf/citrinet/", config_name="fast-conformer_ctc_bpe")
 def main(cfg):
@@ -94,10 +128,10 @@ def main(cfg):
     asr_model = EncDecCTCModelBPE(cfg=cfg.model, trainer=trainer)
 
     # Khởi tạo callback ConfidenceScoreCallback
-    # confidence_callback = ConfidenceScoreCallback(asr_model)
+    confidence_callback = ConfidenceScoreCallback(asr_model)
 
     # Thêm callback vào trainer
-    # trainer.callbacks.extend(confidence_callback)
+    trainer.callbacks.extend(confidence_callback)
 
     # Initialize the weights of the model from another model, if provided via config
     asr_model.maybe_init_from_pretrained_checkpoint(cfg)
