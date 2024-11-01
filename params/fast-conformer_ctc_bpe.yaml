@@ -230,7 +230,7 @@ exp_manager:
   resume_ignore_no_checkpoint: false
 
   # You may use this section to create a W&B logger
-  create_wandb_logger: false
+  create_wandb_logger: true
   wandb_logger_kwargs:
     name: null
-    project: null
+    project: fast-conformer-vivos
