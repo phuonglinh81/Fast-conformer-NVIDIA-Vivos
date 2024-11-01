@@ -87,7 +87,14 @@ class ConfidenceScoreCallback(pl.Callback):
         total_confidence_score = 0
         num_batches = 0
 
-        for batch in trainer.val_dataloaders[0]:
+        val_dataloaders = trainer.val_dataloaders
+        # Kiểm tra xem val_dataloaders có là danh sách không
+        if isinstance(val_dataloaders, list):
+            val_dataloader = val_dataloaders[0]
+        else:
+            val_dataloader = val_dataloaders
+
+        for batch in val_dataloader:
             inputs, labels = batch
             logits = self.model(inputs)  # Dự đoán từ mô hình
             
@@ -131,7 +138,7 @@ def main(cfg):
     confidence_callback = ConfidenceScoreCallback(asr_model)
 
     # Thêm callback vào trainer
-    trainer.callbacks.extend(confidence_callback)
+    trainer.callbacks.extend([confidence_callback])
 
     # Initialize the weights of the model from another model, if provided via config
     asr_model.maybe_init_from_pretrained_checkpoint(cfg)
@@ -144,6 +151,10 @@ def main(cfg):
 
     # Kết thúc phiên W&B sau khi huấn luyện hoàn tất
     wandb.finish()
+
+    # Hủy bỏ ProcessGroup để tránh cảnh báo
+    from torch.distributed import destroy_process_group
+    destroy_process_group()
 
 if __name__ == '__main__':
     main()
