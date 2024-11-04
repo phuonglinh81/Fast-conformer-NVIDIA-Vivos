@@ -76,52 +76,73 @@ import wandb
 from datetime import datetime
 import pytorch_lightning as pl
 import torch
+import torch
+from pytorch_lightning.callbacks import Callback
 
-class ConfidenceScoreCallback(pl.Callback):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
+# class ConfidenceScoreCallback(pl.Callback):
+#     def __init__(self, model):
+#         super().__init__()
+#         self.model = model
     
-    def on_validation_epoch_end(self, trainer, pl_module):
-        # Tính confidence score cho mỗi batch trong tập validation
-        total_confidence_score = 0
-        num_batches = 0
+#     def on_validation_epoch_end(self, trainer, pl_module):
+#         # Tính confidence score cho mỗi batch trong tập validation
+#         total_confidence_score = 0
+#         num_batches = 0
 
-        val_dataloaders = trainer.val_dataloaders
-        # Kiểm tra xem val_dataloaders có là danh sách không
-        if isinstance(val_dataloaders, list):
-            val_dataloader = val_dataloaders[0]
-        else:
-            val_dataloader = val_dataloaders
+#         val_dataloaders = trainer.val_dataloaders
+#         # Kiểm tra xem val_dataloaders có là danh sách không
+#         if isinstance(val_dataloaders, list):
+#             val_dataloader = val_dataloaders[0]
+#         else:
+#             val_dataloader = val_dataloaders
 
-        for batch in val_dataloader:
-            inputs, labels = batch
-            logits = self.model(inputs)  # Dự đoán từ mô hình
+#         for batch in val_dataloader:
+#             inputs, labels = batch
+#             logits = self.model(inputs)  # Dự đoán từ mô hình
             
-            # Tính toán confidence cho mỗi từ hoặc câu từ logits
-            confidence_score = self.calculate_confidence(logits)
-            total_confidence_score += confidence_score
-            num_batches += 1
+#             # Tính toán confidence cho mỗi từ hoặc câu từ logits
+#             confidence_score = self.calculate_confidence(logits)
+#             total_confidence_score += confidence_score
+#             num_batches += 1
         
-        # Tính điểm confidence trung bình cho epoch
-        average_confidence_score = total_confidence_score / num_batches
+#         # Tính điểm confidence trung bình cho epoch
+#         average_confidence_score = total_confidence_score / num_batches
         
-        # Log điểm confidence vào W&B
-        if trainer.logger:
-            trainer.logger.experiment.log({"confidence_score": average_confidence_score})
+#         # Log điểm confidence vào W&B
+#         if trainer.logger:
+#             trainer.logger.experiment.log({"confidence_score": average_confidence_score})
     
-    def calculate_confidence(self, logits):
-        # Ví dụ tính confidence score từ logits
-        probabilities = torch.softmax(logits, dim=-1)
-        confidence_score = probabilities.max(dim=-1).values.mean().item()
-        return confidence_score
+#     def calculate_confidence(self, logits):
+#         # Ví dụ tính confidence score từ logits
+#         probabilities = torch.softmax(logits, dim=-1)
+#         confidence_score = probabilities.max(dim=-1).values.mean().item()
+#         return confidence_score
+
+class ConfidenceScoreCallback(Callback):
+    def __init__(self):
+        super().__init__()
+
+    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        # Assume outputs are the logits or probabilities for the predictions
+        logits = outputs['logits']  # you may need to check the exact output format
+
+        # Compute probabilities
+        probabilities = torch.nn.functional.softmax(logits, dim=-1)
+
+        # Compute confidence as the max probability for each time step in each sample
+        max_probs, _ = probabilities.max(dim=-1)
+        confidence_scores = max_probs.mean(dim=-1)  # Average confidence over all time steps
+
+        # Log the average confidence score for the batch
+        avg_confidence_score = confidence_scores.mean().item()
+        trainer.logger.log_metrics({'val_confidence': avg_confidence_score}, step=trainer.global_step)
 
 @hydra_runner(config_path="../conf/citrinet/", config_name="fast-conformer_ctc_bpe")
 def main(cfg):
     experiment_name = f"fast-conformer_lr{cfg.model.optim.lr}_epochs{cfg.trainer.max_epochs}"
     logging.info(f'Hydra config: {OmegaConf.to_yaml(cfg)}')
 
-    trainer = pl.Trainer(**cfg.trainer)
+    trainer = pl.Trainer(**cfg.trainer, callbacks=[ConfidenceScoreCallback()])
 
     # Thiết lập exp_manager để tự động ghi log với W&B
     cfg.exp_manager.create_wandb_logger = True
@@ -134,11 +155,11 @@ def main(cfg):
     exp_manager(trainer, cfg.get("exp_manager", None))
     asr_model = EncDecCTCModelBPE(cfg=cfg.model, trainer=trainer)
 
-    # Khởi tạo callback ConfidenceScoreCallback
-    confidence_callback = ConfidenceScoreCallback(asr_model)
+    # # Khởi tạo callback ConfidenceScoreCallback
+    # confidence_callback = ConfidenceScoreCallback(asr_model)
 
-    # Thêm callback vào trainer
-    trainer.callbacks.extend([confidence_callback])
+    # # Thêm callback vào trainer
+    # trainer.callbacks.extend([confidence_callback])
 
     # Initialize the weights of the model from another model, if provided via config
     asr_model.maybe_init_from_pretrained_checkpoint(cfg)
