@@ -118,31 +118,31 @@ from pytorch_lightning.callbacks import Callback
 #         confidence_score = probabilities.max(dim=-1).values.mean().item()
 #         return confidence_score
 
-class ConfidenceScoreCallback(Callback):
-    def __init__(self):
-        super().__init__()
+# class ConfidenceScoreCallback(Callback):
+#     def __init__(self):
+#         super().__init__()
 
-    def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
-        # Assume outputs are the logits or probabilities for the predictions
-        logits = outputs['logits']  # you may need to check the exact output format
+#     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+#         # Assume outputs are the logits or probabilities for the predictions
+#         logits = outputs['logits']  # you may need to check the exact output format
 
-        # Compute probabilities
-        probabilities = torch.nn.functional.softmax(logits, dim=-1)
+#         # Compute probabilities
+#         probabilities = torch.nn.functional.softmax(logits, dim=-1)
 
-        # Compute confidence as the max probability for each time step in each sample
-        max_probs, _ = probabilities.max(dim=-1)
-        confidence_scores = max_probs.mean(dim=-1)  # Average confidence over all time steps
+#         # Compute confidence as the max probability for each time step in each sample
+#         max_probs, _ = probabilities.max(dim=-1)
+#         confidence_scores = max_probs.mean(dim=-1)  # Average confidence over all time steps
 
-        # Log the average confidence score for the batch
-        avg_confidence_score = confidence_scores.mean().item()
-        trainer.logger.log_metrics({'val_confidence': avg_confidence_score}, step=trainer.global_step)
+#         # Log the average confidence score for the batch
+#         avg_confidence_score = confidence_scores.mean().item()
+#         trainer.logger.log_metrics({'val_confidence': avg_confidence_score}, step=trainer.global_step)
 
 @hydra_runner(config_path="../conf/citrinet/", config_name="fast-conformer_ctc_bpe")
 def main(cfg):
     experiment_name = f"fast-conformer_lr{cfg.model.optim.lr}_epochs{cfg.trainer.max_epochs}"
     logging.info(f'Hydra config: {OmegaConf.to_yaml(cfg)}')
 
-    trainer = pl.Trainer(**cfg.trainer, callbacks=[ConfidenceScoreCallback()])
+    trainer = pl.Trainer(**cfg.trainer)
 
     # Thiết lập exp_manager để tự động ghi log với W&B
     cfg.exp_manager.create_wandb_logger = True
@@ -174,8 +174,8 @@ def main(cfg):
     wandb.finish()
 
     # Hủy bỏ ProcessGroup để tránh cảnh báo
-    from torch.distributed import destroy_process_group
-    destroy_process_group()
+    # from torch.distributed import destroy_process_group
+    # destroy_process_group()
 
 if __name__ == '__main__':
     main()
