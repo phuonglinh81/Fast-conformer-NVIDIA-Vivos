@@ -318,7 +318,7 @@ def main(cfg: EvalBeamSearchNGramConfig):
             with torch.no_grad():
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'
-                all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size, logprobs=True)
+                all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size)
 
         all_probs = all_logits
         if cfg.probs_cache_file:
@@ -332,6 +332,8 @@ def main(cfg: EvalBeamSearchNGramConfig):
     words_count = 0
     chars_count = 0
     for batch_idx, probs in enumerate(all_probs):
+        print(probs)
+        print(type(probs))
         preds = np.argmax(probs, axis=1)
         preds_tensor = torch.tensor(preds, device='cpu').unsqueeze(0)
         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
