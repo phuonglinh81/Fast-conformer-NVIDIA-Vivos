@@ -46,7 +46,7 @@ def main():
     )
     parser.add_argument(
         "--lm_builder",
-        default="chain-est-phone-lm",
+        default="scripts/asr_language_modeling/ngram_lm/make_phone_lm.py",
         type=str,
         help=(
             "The path or name of an LM builder. Supported builders: chain-est-phone-lm "
@@ -65,6 +65,8 @@ def main():
     args = parser.parse_args()
 
     is_chain_builder = Path(args.lm_builder).stem == "chain-est-phone-lm"
+    is_make_phone_lm_builder = Path(args.lm_builder).stem == "make_phone_lm"  # Kiểm tra make_phone_lm.py
+
 
     """ TOKENIZER SETUP """
     logging.info(f"Loading {args.tokenizer_type} tokenizer from '{args.tokenizer_dir}' ...")
@@ -124,15 +126,15 @@ def main():
         p1.stdout = None
         Thread(target=p1.communicate, args=[tok_texts]).start()
         out, err = p2.communicate()
-    else:
+    elif is_make_phone_lm_builder:
+        # Gọi make_phone_lm.py
         pipe_args = [
             args.lm_builder,
-            f"--ngram-order={args.ngram_order}",
-            f"--no-backoff-ngram-order={args.ngram_order}",
-            "--phone-disambig-symbol=-11",
+            f"--ngram_order={args.ngram_order}",
+            "--output_file", args.output_file,  # Cung cấp tên file đầu ra
         ]
-        p1 = Popen(pipe_args, stdout=PIPE, stdin=PIPE, text=True)
-        out, err = p1.communicate(tok_texts)
+        p1 = Popen(pipe_args, stdin=PIPE, stdout=PIPE, text=True)
+        out, err = p1.communicate(tok_texts)  # Gửi dữ liệu tokenized
 
     logging.info(f"LM is built, writing to {args.output_file} ...")
     with open(args.output_file, "w", encoding="utf-8") as f:
