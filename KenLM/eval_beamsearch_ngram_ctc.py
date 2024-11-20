@@ -319,14 +319,14 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'
                 all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size)
-
+        print(type(all_logits))
         all_probs = all_logits
         if cfg.probs_cache_file:
             os.makedirs(os.path.split(cfg.probs_cache_file)[0], exist_ok=True)
             logging.info(f"Writing pickle files of probabilities at '{cfg.probs_cache_file}'...")
             with open(cfg.probs_cache_file, 'wb') as f_dump:
                 pickle.dump(all_probs, f_dump)
-
+            print(type(all_probs))
     wer_dist_greedy = 0
     cer_dist_greedy = 0
     words_count = 0
