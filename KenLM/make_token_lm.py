@@ -54,7 +54,7 @@ def main():
         ),
     )
     parser.add_argument(
-        "--ngram_order", type=int, default=3, choices=[2, 3, 4, 5], help="Order of n-gram to use",
+        "--ngram_order", type=int, default=2, choices=[2, 3, 4, 5], help="Order of n-gram to use",
     )
     parser.add_argument(
         "--output_file", required=True, type=str, help="The path to store the token LM",
@@ -63,9 +63,6 @@ def main():
         "--do_lowercase", action="store_true", help="Whether to apply lower case conversion on the text",
     )
     args = parser.parse_args()
-
-    is_chain_builder = Path(args.lm_builder).stem == "chain-est-phone-lm"
-    is_make_phone_lm_builder = Path(args.lm_builder).stem == "make_phone_lm"  # Kiểm tra make_phone_lm.py
 
 
     """ TOKENIZER SETUP """
@@ -93,18 +90,16 @@ def main():
     tok_text_list = []
     num_lines = 0
     for manifest in manifests:
-        logging.info(f"Processing manifest : {manifest} ...")
-        with open(manifest, "r") as in_reader:
-            for line in in_reader:
-                item = json.loads(line)
-                text = item["text"]
-                if args.do_lowercase:
-                    text = text.lower()
-                tok_text = " ".join([str(i + offset) for i in tokenizer.text_to_ids(text)])
-                if is_chain_builder:
-                    tok_text = f"line_{num_lines} " + tok_text
-                tok_text_list.append(tok_text)
-                num_lines += 1
+      logging.info(f"Processing manifest : {manifest} ...")
+      with open(manifest, "r") as in_reader:
+          for line in in_reader:
+              item = json.loads(line)
+              text = item["text"]
+              if args.do_lowercase:
+                  text = text.lower()
+              tok_text = " ".join([str(i + offset) for i in tokenizer.text_to_ids(text)])
+              tok_text_list.append(tok_text)
+              num_lines += 1
 
     tok_texts = "\n".join(tok_text_list)
     del tok_text_list
@@ -112,35 +107,29 @@ def main():
 
     """ LM BUILDING """
     logging.info(f"Calling {args.lm_builder} ...")
-    if is_chain_builder:
-        pipe_args = [
-            args.lm_builder,
-            f"--ngram-order={args.ngram_order}",
-            f"--no-prune-ngram-order={args.ngram_order}",
-            "ark:-",
-            "-",
-        ]
-        p1 = Popen(pipe_args, stdin=PIPE, stdout=PIPE, text=True)
-        p2 = Popen(["fstprint"], stdin=p1.stdout, stdout=PIPE, text=True)
-        p1.stdout.close()
-        p1.stdout = None
-        Thread(target=p1.communicate, args=[tok_texts]).start()
-        out, err = p2.communicate()
-    elif is_make_phone_lm_builder:
-        # Gọi make_phone_lm.py
-        pipe_args = [
-            args.lm_builder,
-            f"--ngram_order={args.ngram_order}",
-            "--output_file", args.output_file,  # Cung cấp tên file đầu ra
-        ]
-        p1 = Popen(pipe_args, stdin=PIPE, stdout=PIPE, text=True)
-        out, err = p1.communicate(tok_texts)  # Gửi dữ liệu tokenized
+    pipe_args = [
+      args.lm_builder,
+      f"--ngram-order={args.ngram_order}",
+      f"--no-backoff-ngram-order={args.ngram_order}",
+      "--phone-disambig-symbol=-11",
+    ]  
+    # Gọi make_phone_lm.py
+    p1 = Popen(pipe_args, stdout=PIPE, stdin=PIPE, text=True)
 
+    # Truyền dữ liệu tokenized vào make_phone_lm.py
+    out, err = p1.communicate(tok_texts)
+
+    # Kiểm tra lỗi trong quá trình chạy
+    if p1.returncode != 0:
+        logging.error(f"Error while building LM: {err}")
+        raise RuntimeError("Failed to build the language model.")
+
+    # Ghi đầu ra vào tệp
     logging.info(f"LM is built, writing to {args.output_file} ...")
     with open(args.output_file, "w", encoding="utf-8") as f:
         f.write(out)
-    logging.info(f"Done writing to '{args.output_file}'.")
 
+    logging.info(f"Done writing to '{args.output_file}'.")
 
 if __name__ == "__main__":
     main()
