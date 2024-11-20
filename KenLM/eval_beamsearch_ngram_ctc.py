@@ -307,6 +307,11 @@ def main(cfg: EvalBeamSearchNGramConfig):
         with open(cfg.probs_cache_file, 'rb') as probs_file:
             all_probs = pickle.load(probs_file)
 
+            
+        # Kiểm tra lại kiểu dữ liệu sau khi tải từ pickle
+            for idx, prob in enumerate(all_probs):
+                print(f"Index {idx}: Type of prob = {type(prob)}")
+
         if len(all_probs) != len(audio_file_paths):
             raise ValueError(
                 f"The number of samples in the probabilities file '{cfg.probs_cache_file}' does not "
@@ -319,7 +324,12 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'
                 all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size)
-        print(type(all_logits))
+                print(type(all_logits))
+                # for idx, logit in enumerate(all_logits):
+                #   print(f"Index {idx}: Type of logit = {type(logit)}")
+                #   print(f"Index {idx}: Logit values = {logit}")
+
+
         all_probs = all_logits
         if cfg.probs_cache_file:
             os.makedirs(os.path.split(cfg.probs_cache_file)[0], exist_ok=True)
@@ -334,7 +344,7 @@ def main(cfg: EvalBeamSearchNGramConfig):
     for batch_idx, probs in enumerate(all_probs):
         print(probs)
         print(type(probs))
-        preds = np.argmax(probs, axis=2)
+        preds = np.argmax(probs, axis=1)
         preds_tensor = torch.tensor(preds, device='cpu').unsqueeze(0)
         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
             pred_text = asr_model.ctc_decoding.ctc_decoder_predictions_tensor(preds_tensor)[0][0]
