@@ -46,7 +46,7 @@ def main():
     )
     parser.add_argument(
         "--lm_builder",
-        default="scripts/asr_language_modeling/ngram_lm/make_phone_lm.py",
+        default="/content/Fast-conformer-NVIDIA-Vivos/KenLM/scripts/asr_language_modeling/ngram_lm/make_phone_lm.py",
         type=str,
         help=(
             "The path or name of an LM builder. Supported builders: chain-est-phone-lm "
@@ -54,7 +54,7 @@ def main():
         ),
     )
     parser.add_argument(
-        "--ngram_order", type=int, default=2, choices=[2, 3, 4, 5], help="Order of n-gram to use",
+        "--ngram_order", type=int, default=3, choices=[2, 3, 4, 5], help="Order of n-gram to use",
     )
     parser.add_argument(
         "--output_file", required=True, type=str, help="The path to store the token LM",
