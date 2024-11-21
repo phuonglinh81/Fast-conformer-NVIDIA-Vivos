@@ -328,8 +328,9 @@ def main(cfg: EvalBeamSearchNGramConfig):
             with torch.no_grad():
                 if isinstance(asr_model, EncDecHybridRNNTCTCModel):
                     asr_model.cur_decoder = 'ctc'
-                all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size)
+                all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size, return_logits=True)
                 print(type(all_logits))
+                
                 # for idx, logit in enumerate(all_logits):
                 #   print(f"Index {idx}: Type of logit = {type(logit)}")
                 #   print(f"Index {idx}: Logit values = {logit}")
