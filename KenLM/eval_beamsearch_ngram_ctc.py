@@ -307,10 +307,15 @@ def main(cfg: EvalBeamSearchNGramConfig):
         with open(cfg.probs_cache_file, 'rb') as probs_file:
             all_probs = pickle.load(probs_file)
 
-            
-        # Kiểm tra lại kiểu dữ liệu sau khi tải từ pickle
-            for idx, prob in enumerate(all_probs):
-                print(f"Index {idx}: Type of prob = {type(prob)}")
+
+
+        for idx, prob in enumerate(all_probs):
+          print(f"Index {idx}: Type of prob = {type(prob)}")
+          if idx == 5:  # Chỉ in tối đa 10 phần tử để tránh in quá nhiều
+              break
+
+
+
 
         if len(all_probs) != len(audio_file_paths):
             raise ValueError(
@@ -336,14 +341,22 @@ def main(cfg: EvalBeamSearchNGramConfig):
             logging.info(f"Writing pickle files of probabilities at '{cfg.probs_cache_file}'...")
             with open(cfg.probs_cache_file, 'wb') as f_dump:
                 pickle.dump(all_probs, f_dump)
+
             print(type(all_probs))
+
+
     wer_dist_greedy = 0
     cer_dist_greedy = 0
     words_count = 0
     chars_count = 0
     for batch_idx, probs in enumerate(all_probs):
+
+
         print(probs)
         print(type(probs))
+
+
+
         preds = np.argmax(probs, axis=1)
         preds_tensor = torch.tensor(preds, device='cpu').unsqueeze(0)
         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
