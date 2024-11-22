@@ -327,17 +327,24 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 f"match the manifest file. You may need to delete the probabilities cached file."
             )
     else:
-        def load_audio(file_paths):
+        def load_audio(file_paths, max_length):
           audio_data = []
-
+          
           for file_path in file_paths:
-              # Đọc tệp âm thanh
               waveform, sr = torchaudio.load(file_path)
-
+              
+              # Padding hoặc cắt bớt để chuẩn hóa về max_length
+              if waveform.size(1) < max_length:
+                  # Padding thêm giá trị 0 ở cuối nếu nhỏ hơn max_length
+                  padding = max_length - waveform.size(1)
+                  waveform = torch.nn.functional.pad(waveform, (0, padding))
+              elif waveform.size(1) > max_length:
+                  # Cắt bớt nếu lớn hơn max_length
+                  waveform = waveform[:, :max_length]
+              
               audio_data.append(waveform)
 
-          # Padding các audio_data về cùng chiều dài
-          # pad_sequence sẽ padding các tensor có kích thước khác nhau
+          # Padding các tensor với `pad_sequence`
           return pad_sequence(audio_data, batch_first=True)
 
         with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
