@@ -77,6 +77,10 @@ from nemo.collections.asr.parts.submodules import ctc_beam_decoding
 from nemo.collections.asr.parts.utils.transcribe_utils import PunctuationCapitalization, TextProcessingConfig
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
+import torch
+import torchaudio
+from torch.nn.utils.rnn import pad_sequence
+
 
 # fmt: off
 
@@ -323,13 +327,39 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 f"match the manifest file. You may need to delete the probabilities cached file."
             )
     else:
+        def load_audio(file_paths):
+          audio_data = []
+
+          for file_path in file_paths:
+              # Đọc tệp âm thanh
+              waveform, sr = torchaudio.load(file_path)
+
+              audio_data.append(waveform)
+
+          # Padding các audio_data về cùng chiều dài
+          # pad_sequence sẽ padding các tensor có kích thước khác nhau
+          return pad_sequence(audio_data, batch_first=True)
 
         with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
-            with torch.no_grad():
-                if isinstance(asr_model, EncDecHybridRNNTCTCModel):
-                    asr_model.cur_decoder = 'ctc'
-                all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size, return_logits=True)
-                print(type(all_logits))
+          with torch.no_grad():
+            if isinstance(asr_model, EncDecHybridRNNTCTCModel):
+                asr_model.cur_decoder = 'ctc'
+
+            # Đọc dữ liệu âm thanh (giả sử dữ liệu đã được xử lý sẵn)
+            audio_data = load_audio(audio_file_paths)
+
+            # Thực hiện dự đoán
+            outputs = asr_model(audio_data)
+
+            # Lấy logits từ kết quả dự đoán
+            all_logits = outputs['logits'] if 'logits' in outputs else outputs[0]
+            
+            print(type(all_logits))  # Kiểm tra kiểu của logits
+            # with torch.no_grad():
+            #     if isinstance(asr_model, EncDecHybridRNNTCTCModel):
+            #         asr_model.cur_decoder = 'ctc'
+            #     all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size, return_logits=True)
+            #     print(type(all_logits))
                 
                 # for idx, logit in enumerate(all_logits):
                 #   print(f"Index {idx}: Type of logit = {type(logit)}")
