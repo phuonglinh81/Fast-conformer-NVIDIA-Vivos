@@ -327,64 +327,112 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 f"match the manifest file. You may need to delete the probabilities cached file."
             )
     else:
-        # Hàm để cắt hoặc thêm padding cho các tensor
-        def pad_or_truncate(tensor_list, target_length):
-            padded_tensors = []
-            for tensor in tensor_list:
-                # Nếu tensor chỉ có 1 chiều, thêm một chiều giả (batch dimension)
-                if tensor.ndimension() == 1:
-                    tensor = tensor.unsqueeze(0)  # Chuyển thành (1, time)
+        target_transcripts = []
+        manifest_dir = Path(cfg.input_manifest).parent
+        with open(cfg.input_manifest, 'r', encoding='utf_8') as manifest_file:
+            audio_file_paths = []
+            for line in tqdm(manifest_file, desc=f"Reading Manifest {cfg.input_manifest} ...", ncols=120):
+                data = json.loads(line)
+                audio_file = Path(data['audio_filepath'])
+                if not audio_file.is_file() and not audio_file.is_absolute():
+                    audio_file = manifest_dir / audio_file
+                target_transcripts.append(data['text'])
+                audio_file_paths.append(str(audio_file.absolute()))
+
+        # Kiểm tra tệp âm thanh và chạy mô hình
+        for audio_filepath, expected_text in zip(audio_file_paths, target_transcripts):
+            try:
+                # Đọc tệp âm thanh và chuyển thành tensor
+                audio_signal, sample_rate = sf.read(audio_filepath)
+                audio_signal = torch.tensor(audio_signal, dtype=torch.float32).unsqueeze(0)  # Thêm batch dimension
+                audio_signal_len = torch.tensor([audio_signal.shape[1]], dtype=torch.int64)  # Độ dài tín hiệu
+
+                # Chạy mô hình trên dữ liệu âm thanh
+                all_logits = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
+
+                # Hiển thị kết quả (logits chưa được giải mã)
+                print(f"Logits: {all_logits[0]}")
+            except Exception as e:
+                print(f"Error processing {audio_filepath}: {e}")
+
+        # # Đọc và xử lý manifest.json
+        # with open(cfg.input_manifest, 'r') as f:
+        #     manifest_lines = f.readlines()
+
+        # for line in manifest_lines:
+        #     entry = json.loads(line.strip())
+        #     audio_filepath = entry["audio_filepath"]
+        #     expected_text = entry["text"]  # Văn bản chú thích (nếu cần để so sánh sau này)
+        #     duration = entry["duration"]  # Thời lượng (nếu cần)
+
+        #     # Đọc tệp âm thanh và chuyển thành tensor
+        #     audio_signal, sample_rate = sf.read(audio_filepath)
+        #     audio_signal = torch.tensor(audio_signal, dtype=torch.float32).unsqueeze(0)  # Thêm batch dimension
+        #     audio_signal_len = torch.tensor([audio_signal.shape[1]], dtype=torch.int64)  # Độ dài tín hiệu
+
+        #     # Chạy mô hình trên dữ liệu âm thanh
+        #     all_logits = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
+
+        #     # Hiển thị kết quả (logits chưa được giải mã)
+        #     print(f"Logits: {all_logits[0]}")
+        # # Hàm để cắt hoặc thêm padding cho các tensor
+        # def pad_or_truncate(tensor_list, target_length):
+        #     padded_tensors = []
+        #     for tensor in tensor_list:
+        #         # Nếu tensor chỉ có 1 chiều, thêm một chiều giả (batch dimension)
+        #         if tensor.ndimension() == 1:
+        #             tensor = tensor.unsqueeze(0)  # Chuyển thành (1, time)
                 
-                # Nếu tensor có chiều dài lớn hơn target_length, cắt bớt
-                if tensor.shape[1] > target_length:
-                    padded_tensors.append(tensor[:, :target_length])
-                else:  # Nếu tensor ngắn hơn, bổ sung padding
-                    pad_length = target_length - tensor.shape[1]
-                    padding = torch.zeros((tensor.shape[0], pad_length), dtype=tensor.dtype)
-                    padded_tensors.append(torch.cat([tensor, padding], dim=1))
+        #         # Nếu tensor có chiều dài lớn hơn target_length, cắt bớt
+        #         if tensor.shape[1] > target_length:
+        #             padded_tensors.append(tensor[:, :target_length])
+        #         else:  # Nếu tensor ngắn hơn, bổ sung padding
+        #             pad_length = target_length - tensor.shape[1]
+        #             padding = torch.zeros((tensor.shape[0], pad_length), dtype=tensor.dtype)
+        #             padded_tensors.append(torch.cat([tensor, padding], dim=1))
             
-            return padded_tensors
+        #     return padded_tensors
 
-        # Đọc các file âm thanh và chuyển đổi thành tensor
-        max_length = 32000  # Độ dài tối đa
+        # # Đọc các file âm thanh và chuyển đổi thành tensor
+        # max_length = 32000  # Độ dài tối đa
 
-        audio_signals = []
-        for path in audio_file_paths:
-            audio_signal, sample_rate = sf.read(path)  # Đọc file âm thanh
-            audio_signal = torch.tensor(audio_signal, dtype=torch.float32)  # Chuyển thành tensor
-            audio_signals.append(audio_signal)
+        # audio_signals = []
+        # for path in audio_file_paths:
+        #     audio_signal, sample_rate = sf.read(path)  # Đọc file âm thanh
+        #     audio_signal = torch.tensor(audio_signal, dtype=torch.float32)  # Chuyển thành tensor
+        #     audio_signals.append(audio_signal)
 
-        # Chỉnh sửa tensor để đảm bảo tất cả cùng độ dài
-        audio_signals = pad_or_truncate(audio_signals, max_length)
+        # # Chỉnh sửa tensor để đảm bảo tất cả cùng độ dài
+        # audio_signals = pad_or_truncate(audio_signals, max_length)
 
-        # Sử dụng pad_sequence (batch_first=True để đưa batch lên đầu)
-        padded_audio_signals = torch.nn.utils.rnn.pad_sequence(audio_signals, batch_first=True)
+        # # Sử dụng pad_sequence (batch_first=True để đưa batch lên đầu)
+        # padded_audio_signals = torch.nn.utils.rnn.pad_sequence(audio_signals, batch_first=True)
 
-        # Squeeze để đảm bảo tensor có kích thước (batch, time) thay vì (batch, 1, time)
-        padded_audio_signals = padded_audio_signals.squeeze(1)  # Loại bỏ chiều có kích thước 1
+        # # Squeeze để đảm bảo tensor có kích thước (batch, time) thay vì (batch, 1, time)
+        # padded_audio_signals = padded_audio_signals.squeeze(1)  # Loại bỏ chiều có kích thước 1
 
-        # Độ dài tín hiệu
-        audio_lengths = torch.tensor([signal.shape[0] for signal in audio_signals], dtype=torch.int64)  # Chỉnh sửa chiều dài
+        # # Độ dài tín hiệu
+        # audio_lengths = torch.tensor([signal.shape[0] for signal in audio_signals], dtype=torch.int64)  # Chỉnh sửa chiều dài
 
-        # Tải mô hình và dự đoán
-        # Ensure both input_signal and window are on the same device
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # # Tải mô hình và dự đoán
+        # # Ensure both input_signal and window are on the same device
+        # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        # Move the input signal to the same device as the model
-        padded_audio_signals = padded_audio_signals.to(device)
+        # # Move the input signal to the same device as the model
+        # padded_audio_signals = padded_audio_signals.to(device)
 
-        # Now you can pass the tensors to the model
-        with torch.amp.autocast(device_type=device.type, enabled=True):  # Ensure autocast works with the device
-            with torch.no_grad():
-                if isinstance(asr_model, EncDecHybridRNNTCTCModel):
-                    asr_model.cur_decoder = 'ctc'
+        # # Now you can pass the tensors to the model
+        # with torch.amp.autocast(device_type=device.type, enabled=True):  # Ensure autocast works with the device
+        #     with torch.no_grad():
+        #         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
+        #             asr_model.cur_decoder = 'ctc'
 
-                # Perform prediction
-                outputs = asr_model(input_signal=padded_audio_signals, input_signal_length=audio_lengths)
+        #         # Perform prediction
+        #         outputs = asr_model(input_signal=padded_audio_signals, input_signal_length=audio_lengths)
 
-                # Retrieve the logits
-                all_logits = outputs['logits'] if 'logits' in outputs else outputs[0]
-                print("Logits:", all_logits)
+        #         # Retrieve the logits
+        #         all_logits = outputs['logits'] if 'logits' in outputs else outputs[0]
+        #         print("Logits:", all_logits)
         # with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
         #   with torch.no_grad():
         #     if isinstance(asr_model, EncDecHybridRNNTCTCModel):
