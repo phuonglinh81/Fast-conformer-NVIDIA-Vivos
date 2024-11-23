@@ -351,7 +351,7 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 all_logits = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
 
                 # Hiển thị kết quả (logits chưa được giải mã)
-                print(f"Logits: {all_logits[0]}")
+                # print(f"Logits: {all_logits[0]}")
             except Exception as e:
                 print(f"Error processing {audio_filepath}: {e}")
 
