@@ -482,7 +482,7 @@ def main(cfg: EvalBeamSearchNGramConfig):
 
 
 
-        preds = np.argmax(probs, axis=0)
+        preds = np.argmax(probs.detach().cpu().numpy(), axis=1)
         preds_tensor = torch.tensor(preds, device='cpu').unsqueeze(0)
         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
             pred_text = asr_model.ctc_decoding.ctc_decoder_predictions_tensor(preds_tensor)[0][0]
