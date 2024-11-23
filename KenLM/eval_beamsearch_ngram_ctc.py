@@ -81,7 +81,7 @@ import torch
 import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import soundfile as sf
-
+from nemo.collections.asr.models import EncDecCTCModel
 # fmt: off
 
 
@@ -327,6 +327,10 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 f"match the manifest file. You may need to delete the probabilities cached file."
             )
     else:
+        device = torch.device('cpu')
+        model_path = '/content/drive/MyDrive/dataset_vivos/FastConformer-CTC-BPE-wer10.nemo'
+
+        asr_model = EncDecCTCModel.restore_from(model_path).to(device)
         target_transcripts = []
         manifest_dir = Path(cfg.input_manifest).parent
         with open(cfg.input_manifest, 'r', encoding='utf_8') as manifest_file:
