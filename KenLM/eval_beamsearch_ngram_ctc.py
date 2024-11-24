@@ -357,17 +357,18 @@ def main(cfg: EvalBeamSearchNGramConfig):
                     all_logits = outputs[0]  # Lấy giá trị đầu tiên (logits)
                 else:
                     all_logits = outputs
-                    
+
                 probs = torch.nn.functional.log_softmax(all_logits, dim=-1)
-                print(f"5 {type(all_logits)}")
-                print(f"2 {probs}")
-                print(f"3 {type(probs)}")
-                print(f"4 Shape of probs: {probs.shape}")
+                
                 # Hiển thị kết quả (logits chưa được giải mã)
                 # print(f"Logits: {all_logits[0]}")
             except Exception as e:
                 print(f"Error processing {audio_filepath}: {e}")
-
+                
+        print(f"5 {type(all_logits)}")
+        print(f"2 {probs}")
+        print(f"3 {type(probs)}")
+        print(f"4 Shape of probs: {probs.shape}")
         # Chuyển đổi logits thành log probs
         
         all_probs = all_logits
