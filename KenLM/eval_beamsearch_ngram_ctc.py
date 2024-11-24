@@ -352,118 +352,24 @@ def main(cfg: EvalBeamSearchNGramConfig):
                 audio_signal_len = torch.tensor([audio_signal.shape[1]], dtype=torch.int64)  # Độ dài tín hiệu
 
                 # Chạy mô hình trên dữ liệu âm thanh
-                all_logits = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
-
+                outputs = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
+                if isinstance(outputs, tuple):
+                    all_logits = outputs[0]  # Lấy giá trị đầu tiên (logits)
+                else:
+                    all_logits = outputs
+                    
+                probs = torch.nn.functional.log_softmax(all_logits, dim=-1)
+                print(f"5 {type(all_logits)}")
+                print(f"2 {probs}")
+                print(f"3 {type(probs)}")
+                print(f"4 Shape of probs: {probs.shape}")
                 # Hiển thị kết quả (logits chưa được giải mã)
                 # print(f"Logits: {all_logits[0]}")
             except Exception as e:
                 print(f"Error processing {audio_filepath}: {e}")
 
-        # # Đọc và xử lý manifest.json
-        # with open(cfg.input_manifest, 'r') as f:
-        #     manifest_lines = f.readlines()
-
-        # for line in manifest_lines:
-        #     entry = json.loads(line.strip())
-        #     audio_filepath = entry["audio_filepath"]
-        #     expected_text = entry["text"]  # Văn bản chú thích (nếu cần để so sánh sau này)
-        #     duration = entry["duration"]  # Thời lượng (nếu cần)
-
-        #     # Đọc tệp âm thanh và chuyển thành tensor
-        #     audio_signal, sample_rate = sf.read(audio_filepath)
-        #     audio_signal = torch.tensor(audio_signal, dtype=torch.float32).unsqueeze(0)  # Thêm batch dimension
-        #     audio_signal_len = torch.tensor([audio_signal.shape[1]], dtype=torch.int64)  # Độ dài tín hiệu
-
-        #     # Chạy mô hình trên dữ liệu âm thanh
-        #     all_logits = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
-
-        #     # Hiển thị kết quả (logits chưa được giải mã)
-        #     print(f"Logits: {all_logits[0]}")
-        # # Hàm để cắt hoặc thêm padding cho các tensor
-        # def pad_or_truncate(tensor_list, target_length):
-        #     padded_tensors = []
-        #     for tensor in tensor_list:
-        #         # Nếu tensor chỉ có 1 chiều, thêm một chiều giả (batch dimension)
-        #         if tensor.ndimension() == 1:
-        #             tensor = tensor.unsqueeze(0)  # Chuyển thành (1, time)
-                
-        #         # Nếu tensor có chiều dài lớn hơn target_length, cắt bớt
-        #         if tensor.shape[1] > target_length:
-        #             padded_tensors.append(tensor[:, :target_length])
-        #         else:  # Nếu tensor ngắn hơn, bổ sung padding
-        #             pad_length = target_length - tensor.shape[1]
-        #             padding = torch.zeros((tensor.shape[0], pad_length), dtype=tensor.dtype)
-        #             padded_tensors.append(torch.cat([tensor, padding], dim=1))
-            
-        #     return padded_tensors
-
-        # # Đọc các file âm thanh và chuyển đổi thành tensor
-        # max_length = 32000  # Độ dài tối đa
-
-        # audio_signals = []
-        # for path in audio_file_paths:
-        #     audio_signal, sample_rate = sf.read(path)  # Đọc file âm thanh
-        #     audio_signal = torch.tensor(audio_signal, dtype=torch.float32)  # Chuyển thành tensor
-        #     audio_signals.append(audio_signal)
-
-        # # Chỉnh sửa tensor để đảm bảo tất cả cùng độ dài
-        # audio_signals = pad_or_truncate(audio_signals, max_length)
-
-        # # Sử dụng pad_sequence (batch_first=True để đưa batch lên đầu)
-        # padded_audio_signals = torch.nn.utils.rnn.pad_sequence(audio_signals, batch_first=True)
-
-        # # Squeeze để đảm bảo tensor có kích thước (batch, time) thay vì (batch, 1, time)
-        # padded_audio_signals = padded_audio_signals.squeeze(1)  # Loại bỏ chiều có kích thước 1
-
-        # # Độ dài tín hiệu
-        # audio_lengths = torch.tensor([signal.shape[0] for signal in audio_signals], dtype=torch.int64)  # Chỉnh sửa chiều dài
-
-        # # Tải mô hình và dự đoán
-        # # Ensure both input_signal and window are on the same device
-        # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-        # # Move the input signal to the same device as the model
-        # padded_audio_signals = padded_audio_signals.to(device)
-
-        # # Now you can pass the tensors to the model
-        # with torch.amp.autocast(device_type=device.type, enabled=True):  # Ensure autocast works with the device
-        #     with torch.no_grad():
-        #         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
-        #             asr_model.cur_decoder = 'ctc'
-
-        #         # Perform prediction
-        #         outputs = asr_model(input_signal=padded_audio_signals, input_signal_length=audio_lengths)
-
-        #         # Retrieve the logits
-        #         all_logits = outputs['logits'] if 'logits' in outputs else outputs[0]
-        #         print("Logits:", all_logits)
-        # with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
-        #   with torch.no_grad():
-        #     if isinstance(asr_model, EncDecHybridRNNTCTCModel):
-        #         asr_model.cur_decoder = 'ctc'
-        #     max_length = 32000 
-        #     # Đọc dữ liệu âm thanh (giả sử dữ liệu đã được xử lý sẵn)
-        #     audio_data = load_audio(audio_file_paths, max_length)
-
-        #     # Thực hiện dự đoán
-        #     outputs = asr_model(input_signal=audio_data, input_signal_length=audio_lengths)
-
-
-        #     # Lấy logits từ kết quả dự đoán
-        #     all_logits = outputs['logits'] if 'logits' in outputs else outputs[0]
-            
-        #     print(type(all_logits))  # Kiểm tra kiểu của logits
-            # with torch.no_grad():
-            #     if isinstance(asr_model, EncDecHybridRNNTCTCModel):
-            #         asr_model.cur_decoder = 'ctc'
-            #     all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size, return_logits=True)
-            #     print(type(all_logits))
-                
-                # for idx, logit in enumerate(all_logits):
-                #   print(f"Index {idx}: Type of logit = {type(logit)}")
-                #   print(f"Index {idx}: Logit values = {logit}")
-
-
+        # Chuyển đổi logits thành log probs
+        
         all_probs = all_logits
         if cfg.probs_cache_file:
             os.makedirs(os.path.split(cfg.probs_cache_file)[0], exist_ok=True)
@@ -479,14 +385,12 @@ def main(cfg: EvalBeamSearchNGramConfig):
     words_count = 0
     chars_count = 0
     for batch_idx, probs in enumerate(all_probs):
-
-
         print(f"2", probs)
         print(f"3", type(probs))
+        print(f"4 Shape of probs: {probs.shape}")
 
 
-
-        preds = np.argmax(probs.detach().cpu().numpy(), axis=1)
+        preds = np.argmax(probs.detach().cpu().numpy(), axis=-1)
         preds_tensor = torch.tensor(preds, device='cpu').unsqueeze(0)
         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
             pred_text = asr_model.ctc_decoding.ctc_decoder_predictions_tensor(preds_tensor)[0][0]
