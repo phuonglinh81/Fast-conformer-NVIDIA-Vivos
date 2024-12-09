@@ -95,6 +95,328 @@ Arguments:
     ctm_file_config: CTMFileConfig to specify the configuration of the output CTM files
     ass_file_config: ASSFileConfig to specify the configuration of the output ASS files
 """
+import json
+import os
+from termcolor import colored
+from typing import List, Optional, Tuple, Union
+
+from IPython.display import Audio, HTML, Image, display
+import numpy as np
+import texterrors
+
+def get_detailed_wer_labels(ref: List[str], hyp: List[str], return_eps_padded_hyp: bool = False):
+    """Get detailed WER labels, aligning reference with hypothesis.
+
+    Possible WER labels:
+        - 'C' for Correct,
+        - 'I' for Insertion,
+        - 'D' for Deletion,
+        - 'S' for Substitution.
+
+    Returns:
+        WER labels list.
+        [Optional] Epsilin-padded hypothesis if return_eps_padded_hyp set to True.
+    """
+
+    # Align reference and hypothesis using "<eps>"
+    aligned_ref, aligned_hyp = texterrors.align_texts(ref, hyp, False)[:-1]
+
+    # Determine labels
+    labels = []
+    for r, h in zip(aligned_ref, aligned_hyp):
+        if r == h:
+            labels.append("C")
+        elif r == "<eps>":
+            labels.append("I")
+        elif h == "<eps>":
+            labels.append("D")
+        else:
+            labels.append("S")
+
+    return labels if not return_eps_padded_hyp else labels, aligned_hyp
+
+
+def fill_confidence_deletions(confidence_scores: List[float], labels: List[str], fill_value: float = 0.0):
+    """Fill confidence scores list with the provided value for deletions.
+    Assumes that we have no natural confidence scores for deletions.
+
+    Returns:
+        Confidence scores list with deletion scores.
+    """
+
+    assert len(confidence_scores) <= len(labels)
+
+    # If the lengths of confidence_scores and labels are equal, then we assume that there are no deletions
+    if len(confidence_scores) == len(labels):
+        return confidence_scores
+
+    # Insert fill_value into confidence_scores where label == "D"
+    new_confidence_scores = []
+    score_index = 0
+    for label in labels:
+        if label == "D":
+            new_confidence_scores.append(fill_value)
+        else:
+            new_confidence_scores.append(confidence_scores[score_index])
+            score_index += 1
+    return new_confidence_scores
+
+
+def pretty_pad_word_labels(labels: List[str], words: List[str]):
+    """Pad word labels with dash for pretty printing.
+    Expects labels and words to have the same length.
+
+    Returns:
+        Padded labels list.
+    """
+
+    # Check that words and labels without 'D' have the same length
+    assert len(words) == len(labels)
+
+    # Pad the labels with dashes to align them with the words
+    padded_labels = []
+    for word, label in zip(words, labels):
+        label_len = len(word)
+        left_padding = (label_len - 1) // 2
+        right_padding = label_len - left_padding - 1
+        padded_label = "-" * left_padding + label + "-" * right_padding
+        padded_labels.append(padded_label)
+
+    return padded_labels
+
+
+def _html_paint_word_grey(word: str, shade: str):
+    if shade == "black":
+        color = "0,0,0"
+    elif shade == "grey":
+        color = "150,150,150"
+    elif shade == "light_grey":
+        color = "200,200,200"
+    else:
+        raise ValueError(
+            f"`shade` has to be one of the following: `black`, `grey`, `light_grey`. Provided: `{shade}`"
+        )
+    return f'<mark style="color:rgb({color});background-color:rgb(255,255,255);">{word}</font></mark>'
+
+
+def pretty_print_transcript_with_confidence(
+    transcript: str,
+    confidence_scores: List[float],
+    threshold: float,
+    reference: Optional[str] = None,
+    terminal_width: int = 120,
+    html: bool = False,
+):
+    if html:
+        shade_if_low_confidence = lambda x, y: _html_paint_word_grey(x, 'light_grey' if y < threshold else 'black')
+        new_line_mark = "<br>"
+        pretty_print = lambda x: display(HTML("<code>" + new_line_mark.join(x) + "</code>"))
+    else:
+        shade_if_low_confidence = lambda x, y: colored(x, 'light_grey') if y < threshold else x
+        new_line_mark = "\n"
+        pretty_print = lambda x: print(new_line_mark.join(x))
+    with_labels = reference is not None
+    transcript_list = transcript.split()
+    output_lines = []
+    if with_labels:
+        reference_list = reference.split()
+        labels, eps_padded_hyp = get_detailed_wer_labels(reference_list, transcript_list, True)
+        padded_labels = pretty_pad_word_labels(labels, eps_padded_hyp)
+        current_line_len = 0
+        current_word_line = ""
+        current_label_line = ""
+        for word, label, padded_label, score in zip(
+            eps_padded_hyp, labels, padded_labels, fill_confidence_deletions(confidence_scores, labels)
+        ):
+            word_len = len(word)
+            # shield angle brackets for <eps>
+            if html and word == "<eps>":
+                word = "&lt;eps&gt;"
+            if current_line_len + word_len + 1 <= terminal_width:
+                if current_line_len > 0:
+                    current_line_len += 1
+                    current_word_line += " "
+                    current_label_line += "-"
+                current_line_len += word_len
+                current_word_line += shade_if_low_confidence(word, score)
+                current_label_line += padded_label
+            else:
+                output_lines.append(current_word_line + new_line_mark + current_label_line)
+                current_line_len = word_len
+                current_word_line = shade_if_low_confidence(word, score)
+                current_label_line = padded_label
+        if current_word_line:
+            output_lines.append(current_word_line + new_line_mark + current_label_line)
+    else:
+        current_line_len = 0
+        current_word_line = ""
+        for word, score in zip(transcript_list, confidence_scores):
+            word_len = len(word)
+            # shield angle brackets for <eps>
+            if html and word == "<eps>":
+                word = "&lt;eps&gt;"
+            if current_line_len + word_len + 1 <= terminal_width:
+                if current_line_len > 0:
+                    current_line_len += 1
+                    current_word_line += " "
+                current_line_len += word_len
+                current_word_line += shade_if_low_confidence(word, score)
+            else:
+                output_lines.append(current_word_line)
+                current_line_len = word_len
+                current_word_line = shade_if_low_confidence(word, score)
+        if current_word_line:
+            output_lines.append(current_word_line)
+
+    pretty_print(output_lines)
+
+from omegaconf import OmegaConf
+from nemo.collections.asr.models import EncDecCTCModel
+from dataclasses import dataclass
+import json
+from typing import List
+
+# Hàm tải mô hình từ tệp .nemo
+def load_model_from_nemo(model_path: str):
+    """Load a pre-trained model from a .nemo file.
+
+    Args:
+        model_path: Path to the .nemo file.
+
+    Returns:
+        A model loaded into GPU with .eval() mode set.
+    """
+    model = EncDecCTCModel.restore_from(model_path)  # Tải mô hình từ tệp .nemo
+    model.eval()  # Đặt mô hình vào chế độ evaluation (không huấn luyện)
+    return model
+
+@dataclass
+class TestSet:
+    filepaths: List[str]
+    reference_texts: List[str]
+    durations: List[float]
+
+def load_data(manifest_path: str):
+    filepaths = []
+    reference_texts = []
+    durations = []
+    with open(manifest_path, "r") as f:
+        for line in f:
+            item = json.loads(line)
+            audio_file = item["audio_filepath"]
+            filepaths.append(str(audio_file))
+            text = item["text"]
+            reference_texts.append(text)
+            durations.append(float(item["duration"]))
+    return TestSet(filepaths, reference_texts, durations)
+
+# Đường dẫn đến tệp manifest và mô hình .nemo
+TEST_MANIFESTS = {
+    "test_other": "/content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest_v2.json",
+}
+
+MODEL_PATH = '/content/drive/MyDrive/dataset_vivos/FastConformer-CTC-BPE-wer10.nemo'
+
+# Tải dữ liệu từ manifest
+test_sets = {manifest: load_data(path) for manifest, path in TEST_MANIFESTS.items()}
+
+# Tải mô hình từ tệp .nemo
+asr_model = load_model_from_nemo(MODEL_PATH)
+
+
+from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConfig
+from nemo.collections.asr.parts.submodules.ctc_decoding import CTCDecodingConfig
+from nemo.collections.asr.parts.utils.asr_confidence_utils import (
+    ConfidenceConfig,
+    ConfidenceMethodConfig,
+    ConfidenceMethodConstants,
+)
+
+# Tải mô hình từ tệp .nemo
+def load_model_from_nemo(model_path: str):
+    from nemo.collections.asr.models import EncDecCTCModel
+    return EncDecCTCModel.restore_from(model_path)
+
+# Đường dẫn đến mô hình của bạn
+MODEL_PATH = '/content/drive/MyDrive/dataset_vivos/FastConformer-CTC-BPE-wer10.nemo'
+
+# Tải mô hình
+asr_model = load_model_from_nemo(MODEL_PATH)
+asr_model.eval()
+
+# Tạo cấu hình ConfidenceConfig
+confidence_cfg = ConfidenceConfig(
+    preserve_frame_confidence=True,
+    preserve_token_confidence=True,
+    preserve_word_confidence=True,
+    aggregation="prod",
+    exclude_blank=False,
+    method_cfg=ConfidenceMethodConfig(
+        name="max_prob",
+        entropy_type="gibbs",
+        alpha=0.5,
+        entropy_norm="lin"
+    )
+)
+
+# Thay đổi chiến lược decoding dựa trên loại mô hình (CTC hoặc RNNT)
+is_rnnt = False  # Đặt true nếu bạn muốn sử dụng RNNT, false nếu sử dụng CTC
+
+if is_rnnt:
+    # Đối với RNNT
+    asr_model.change_decoding_strategy(
+        RNNTDecodingConfig(fused_batch_size=-1, strategy="greedy_batch", confidence_cfg=confidence_cfg)
+    )
+else:
+    # Đối với CTC
+    asr_model.change_decoding_strategy(
+        CTCDecodingConfig(confidence_cfg=confidence_cfg)
+    )
+
+# Sau khi thay đổi decoding strategy, bạn có thể sử dụng mô hình để thực hiện dự đoán.
+
+# Lấy test set
+current_test_set = test_sets["test_other"]
+
+# Kiểm tra nếu filepaths có dữ liệu
+if not current_test_set.filepaths:
+    raise ValueError("File paths in the test set are empty!")
+
+# Chạy transcribe với batch_size và num_workers
+transcriptions = asr_model.transcribe(
+    audio=current_test_set.filepaths,  # Sử dụng 'file_paths' thay vì 'audio'
+    batch_size=16,
+    return_hypotheses=True,
+    num_workers=4
+)
+
+# Kiểm tra nếu mô hình sử dụng RNNT
+if is_rnnt:
+    # Đối với RNNT, lấy kết quả đầu tiên của tuple
+    transcriptions = transcriptions[0]
+
+def round_confidence(confidence_number, ndigits=3):
+    if isinstance(confidence_number, float):
+        return round(confidence_number, ndigits)
+    elif len(confidence_number.size()) == 0:  # torch.tensor with one element
+        return round(confidence_number.item(), ndigits)
+    elif len(confidence_number.size()) == 1:  # torch.tensor with a list if elements
+        return [round(c.item(), ndigits) for c in confidence_number]
+    else:
+        raise RuntimeError(f"Unexpected confidence_number: `{confidence_number}`")
+
+
+tran = transcriptions[0]
+print(
+    f"""    Recognized text: `{tran.text}`\n
+    Word confidence: {[round_confidence(c) for c in tran.word_confidence]}\n
+    Token confidence: {[round_confidence(c) for c in tran.token_confidence]}\n
+    Frame confidence: {
+        [([round_confidence(cc) for cc in c] if is_rnnt else round_confidence(c)) for c in tran.frame_confidence]
+    }"""
+)
+
+
 
 
 @dataclass
