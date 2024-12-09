@@ -114,7 +114,6 @@ def make_ctm(
                         duration=end_time - start_time,
                         token=text,
                         conf=confidence,
-                        conf=None,
                         type_of_token='lex',
                         speaker=None,
                     )
