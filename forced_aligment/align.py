@@ -41,60 +41,6 @@ from nemo.collections.asr.parts.utils.transcribe_utils import setup_model
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
 
-"""
-Align the utterances in manifest_filepath. 
-Results are saved in ctm files in output_dir.
-
-Arguments:
-    pretrained_name: string specifying the name of a CTC NeMo ASR model which will be automatically downloaded
-        from NGC and used for generating the log-probs which we will use to do alignment.
-        Note: NFA can only use CTC models (not Transducer models) at the moment.
-    model_path: string specifying the local filepath to a CTC NeMo ASR model which will be used to generate the
-        log-probs which we will use to do alignment.
-        Note: NFA can only use CTC models (not Transducer models) at the moment.
-        Note: if a model_path is provided, it will override the pretrained_name.
-    manifest_filepath: filepath to the manifest of the data you want to align,
-        containing 'audio_filepath' and 'text' fields.
-    output_dir: the folder where output CTM files and new JSON manifest will be saved.
-    align_using_pred_text: if True, will transcribe the audio using the specified model and then use that transcription 
-        as the reference text for the forced alignment. 
-    transcribe_device: None, or a string specifying the device that will be used for generating log-probs (i.e. "transcribing").
-        The string needs to be in a format recognized by torch.device(). If None, NFA will set it to 'cuda' if it is available 
-        (otherwise will set it to 'cpu').
-    viterbi_device: None, or string specifying the device that will be used for doing Viterbi decoding. 
-        The string needs to be in a format recognized by torch.device(). If None, NFA will set it to 'cuda' if it is available 
-        (otherwise will set it to 'cpu').
-    batch_size: int specifying batch size that will be used for generating log-probs and doing Viterbi decoding.
-    use_local_attention: boolean flag specifying whether to try to use local attention for the ASR Model (will only
-        work if the ASR Model is a Conformer model). If local attention is used, we will set the local attention context 
-        size to [64,64].
-    additional_segment_grouping_separator: an optional string used to separate the text into smaller segments. 
-        If this is not specified, then the whole text will be treated as a single segment. 
-    remove_blank_tokens_from_ctm:  a boolean denoting whether to remove <blank> tokens from token-level output CTMs. 
-    audio_filepath_parts_in_utt_id: int specifying how many of the 'parts' of the audio_filepath
-        we will use (starting from the final part of the audio_filepath) to determine the 
-        utt_id that will be used in the CTM files. Note also that any spaces that are present in the audio_filepath 
-        will be replaced with dashes, so as not to change the number of space-separated elements in the 
-        CTM files.
-        e.g. if audio_filepath is "/a/b/c/d/e 1.wav" and audio_filepath_parts_in_utt_id is 1 => utt_id will be "e1"
-        e.g. if audio_filepath is "/a/b/c/d/e 1.wav" and audio_filepath_parts_in_utt_id is 2 => utt_id will be "d_e1"
-        e.g. if audio_filepath is "/a/b/c/d/e 1.wav" and audio_filepath_parts_in_utt_id is 3 => utt_id will be "c_d_e1"
-    use_buffered_infer: False, if set True, using streaming to do get the logits for alignment
-                        This flag is useful when aligning large audio file.
-                        However, currently the chunk streaming inference does not support batch inference,
-                        which means even you set batch_size > 1, it will only infer one by one instead of doing
-                        the whole batch inference together.
-    chunk_len_in_secs: float chunk length in seconds
-    total_buffer_in_secs: float  Length of buffer (chunk + left and right padding) in seconds
-    chunk_batch_size: int batch size for buffered chunk inference,
-                      which will cut one audio into segments and do inference on chunk_batch_size segments at a time
-
-    simulate_cache_aware_streaming: False, if set True, using cache aware streaming to do get the logits for alignment
-
-    save_output_file_formats: List of strings specifying what type of output files to save (default: ["ctm", "ass"])
-    ctm_file_config: CTMFileConfig to specify the configuration of the output CTM files
-    ass_file_config: ASSFileConfig to specify the configuration of the output ASS files
-"""
 import json
 import os
 from termcolor import colored
@@ -312,7 +258,7 @@ def load_data(manifest_path: str):
 
 # Đường dẫn đến tệp manifest và mô hình .nemo
 TEST_MANIFESTS = {
-    "test_other": "/content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest_v2.json",
+    "test_other": "/content/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest_align.json",
 }
 
 MODEL_PATH = '/content/drive/MyDrive/dataset_vivos/FastConformer-CTC-BPE-wer10.nemo'
@@ -320,8 +266,6 @@ MODEL_PATH = '/content/drive/MyDrive/dataset_vivos/FastConformer-CTC-BPE-wer10.n
 # Tải dữ liệu từ manifest
 test_sets = {manifest: load_data(path) for manifest, path in TEST_MANIFESTS.items()}
 
-# Tải mô hình từ tệp .nemo
-asr_model = load_model_from_nemo(MODEL_PATH)
 
 
 from nemo.collections.asr.parts.submodules.rnnt_decoding import RNNTDecodingConfig
