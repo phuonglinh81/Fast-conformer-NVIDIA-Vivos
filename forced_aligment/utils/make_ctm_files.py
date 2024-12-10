@@ -87,7 +87,6 @@ def make_ctm(
                 text = boundary_info_.text
                 start_time = boundary_info_.t_start
                 end_time = boundary_info_.t_end
-                confidence = getattr(boundary_info_, "confidence", None)
 
                 if (
                     ctm_file_config.minimum_timestamp_duration > 0
@@ -113,7 +112,7 @@ def make_ctm(
                         start_time=start_time,
                         duration=end_time - start_time,
                         token=text,
-                        conf=confidence,
+                        conf=None,
                         type_of_token='lex',
                         speaker=None,
                     )
