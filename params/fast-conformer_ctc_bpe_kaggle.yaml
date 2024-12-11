@@ -51,9 +51,9 @@ model:
   skip_nan_grad: false
 
   train_ds:
-    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_train_manifest_kaggle_notaug.json
+    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_train_manifest_kaggle.json
     sample_rate: ${model.sample_rate}
-    batch_size: 16 # you may increase batch_size if your memory allows
+    batch_size: 32 # 16 cho val_wer 0.1
     shuffle: true
     num_workers: 4
     pin_memory: true
@@ -68,18 +68,18 @@ model:
     bucketing_batch_size: null
 
   validation_ds:
-    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_valid_manifest_kaggle_notaug.json
+    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_valid_manifest_kaggle.json
     sample_rate: ${model.sample_rate}
-    batch_size: 16 # you may increase batch_size if your memory allows
+    batch_size: 32 # 16 cho val_wer 0.1
     shuffle: false
     use_start_end_token: false
     num_workers: 4
     pin_memory: true
 
   test_ds:
-    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest_kaggle_notaug.json
+    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest_kaggle.json
     sample_rate: ${model.sample_rate}
-    batch_size: 16 # you may increase batch_size if your memory allows
+    batch_size: 32 # 16 cho val_wer 0.1
     shuffle: false
     use_start_end_token: false
     num_workers: 4
@@ -194,7 +194,7 @@ model:
 trainer:
   devices: -1 # number of GPUs, -1 would use all available GPUs
   num_nodes: 1
-  max_epochs: 20
+  max_epochs: 30  # 20 cho val_wer 0.1
   max_steps: -1 # computed at runtime if not set
   val_check_interval: 1.0 # Set to 0.25 to check 4 times per epoch, or an int for number of iterations
   accelerator: auto
@@ -217,7 +217,7 @@ exp_manager:
   create_tensorboard_logger: true
   create_checkpoint_callback: true
   checkpoint_callback_params:
-    every_n_epochs: 2
+    every_n_epochs: 10
     # in case of multiple validation sets, first one is used
     monitor: "val_wer"
     mode: "min"
