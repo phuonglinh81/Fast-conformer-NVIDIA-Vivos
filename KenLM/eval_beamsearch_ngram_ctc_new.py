@@ -77,7 +77,11 @@ from nemo.collections.asr.parts.submodules import ctc_beam_decoding
 from nemo.collections.asr.parts.utils.transcribe_utils import PunctuationCapitalization, TextProcessingConfig
 from nemo.core.config import hydra_runner
 from nemo.utils import logging
-
+import torch
+import torchaudio
+from torch.nn.utils.rnn import pad_sequence
+import soundfile as sf
+from nemo.collections.asr.models import EncDecCTCModel
 # fmt: off
 
 
@@ -307,19 +311,66 @@ def main(cfg: EvalBeamSearchNGramConfig):
         with open(cfg.probs_cache_file, 'rb') as probs_file:
             all_probs = pickle.load(probs_file)
 
+
+
+        for idx, prob in enumerate(all_probs):
+          print(f"1 Index {idx}: Type of prob = {type(prob)}")
+          if idx == 5:  # Chỉ in tối đa 10 phần tử để tránh in quá nhiều
+              break
+
+
+
+
         if len(all_probs) != len(audio_file_paths):
             raise ValueError(
                 f"The number of samples in the probabilities file '{cfg.probs_cache_file}' does not "
                 f"match the manifest file. You may need to delete the probabilities cached file."
             )
     else:
+        device = torch.device('cpu')
+        model_path = '/content/drive/MyDrive/dataset_vivos/FastConformer-CTC-BPE-wer10.nemo'
 
-        with torch.amp.autocast(asr_model.device.type, enabled=cfg.use_amp):
-            with torch.no_grad():
-                if isinstance(asr_model, EncDecHybridRNNTCTCModel):
-                    asr_model.cur_decoder = 'ctc'
-                all_logits = asr_model.transcribe(audio_file_paths, batch_size=cfg.acoustic_batch_size)
+        asr_model = EncDecCTCModel.restore_from(model_path).to(device)
+        target_transcripts = []
+        manifest_dir = Path(cfg.input_manifest).parent
+        with open(cfg.input_manifest, 'r', encoding='utf_8') as manifest_file:
+            audio_file_paths = []
+            for line in tqdm(manifest_file, desc=f"Reading Manifest {cfg.input_manifest} ...", ncols=120):
+                data = json.loads(line)
+                audio_file = Path(data['audio_filepath'])
+                if not audio_file.is_file() and not audio_file.is_absolute():
+                    audio_file = manifest_dir / audio_file
+                target_transcripts.append(data['text'])
+                audio_file_paths.append(str(audio_file.absolute()))
 
+        # Kiểm tra tệp âm thanh và chạy mô hình
+        for audio_filepath, expected_text in zip(audio_file_paths, target_transcripts):
+            try:
+                # Đọc tệp âm thanh và chuyển thành tensor
+                audio_signal, sample_rate = sf.read(audio_filepath)
+                audio_signal = torch.tensor(audio_signal, dtype=torch.float32).unsqueeze(0)  # Thêm batch dimension
+                audio_signal_len = torch.tensor([audio_signal.shape[1]], dtype=torch.int64)  # Độ dài tín hiệu
+
+                # Chạy mô hình trên dữ liệu âm thanh
+                outputs = asr_model(input_signal=audio_signal, input_signal_length=audio_signal_len)
+                if isinstance(outputs, tuple):
+                    all_logits = outputs[0]  # Lấy giá trị đầu tiên (logits)
+                else:
+                    all_logits = outputs
+
+                probs = torch.nn.functional.log_softmax(all_logits, dim=-1)
+                
+                # Hiển thị kết quả (logits chưa được giải mã)
+                # print(f"Logits: {all_logits[0]}")
+            except Exception as e:
+                print(f"Error processing {audio_filepath}: {e}")
+                
+        print(f"5 {type(all_logits)}")
+        print(f"2 {probs}")
+        print(f"3 {type(probs)}")
+        print(f"4 Shape of probs: {probs.shape}")
+        # Chuyển đổi logits thành log probs
+        
         all_probs = all_logits
         if cfg.probs_cache_file:
             os.makedirs(os.path.split(cfg.probs_cache_file)[0], exist_ok=True)
@@ -327,17 +378,25 @@ def main(cfg: EvalBeamSearchNGramConfig):
             with open(cfg.probs_cache_file, 'wb') as f_dump:
                 pickle.dump(all_probs, f_dump)
 
+            print(type(all_probs))
+
+
     wer_dist_greedy = 0
     cer_dist_greedy = 0
     words_count = 0
     chars_count = 0
     for batch_idx, probs in enumerate(all_probs):
-        preds = np.argmax(probs, axis=1)
+        print(f"2", probs)
+        print(f"3", type(probs))
+        print(f"4 Shape of probs: {probs.shape}")
+
+
+        preds = np.argmax(probs.detach().cpu().numpy(), axis=-1)
         preds_tensor = torch.tensor(preds, device='cpu').unsqueeze(0)
         if isinstance(asr_model, EncDecHybridRNNTCTCModel):
             pred_text = asr_model.ctc_decoding.ctc_decoder_predictions_tensor(preds_tensor)[0][0]
         else:
-            pred_text = asr_model._wer.decoding.ctc_decoder_predictions_tensor(preds_tensor)[0][0]
+            pred_text = asr_model.wer.decoding.ctc_decoder_predictions_tensor(preds_tensor)[0][0]
 
         if cfg.text_processing.do_lowercase:
             pred_text = punctuation_capitalization.do_lowercase([pred_text])[0]
