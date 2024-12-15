@@ -51,7 +51,7 @@ model:
   skip_nan_grad: false
 
   train_ds:
-    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/train7_15_15/vivos_train_manifest_kaggle.json
+    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_train_manifest_kaggle.json
     sample_rate: ${model.sample_rate}
     batch_size: 32 # 16 cho val_wer 0.1
     shuffle: true
@@ -68,7 +68,7 @@ model:
     bucketing_batch_size: null
 
   validation_ds:
-    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/train7_15_15/vivos_valid_manifest_kaggle.json
+    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_valid_manifest_kaggle.json
     sample_rate: ${model.sample_rate}
     batch_size: 32 # 16 cho val_wer 0.1
     shuffle: false
@@ -77,7 +77,7 @@ model:
     pin_memory: true
 
   test_ds:
-    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/train7_15_15/vivos_test_manifest_kaggle.json
+    manifest_filepath: /kaggle/working/Fast-conformer-NVIDIA-Vivos/data_train/vivos_test_manifest_kaggle.json
     sample_rate: ${model.sample_rate}
     batch_size: 32 # 16 cho val_wer 0.1
     shuffle: false
