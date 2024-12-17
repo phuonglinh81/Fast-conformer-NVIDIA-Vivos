@@ -269,7 +269,7 @@ def main(cfg: EvalBeamSearchNGramConfig):
     if is_dataclass(cfg):
         cfg = OmegaConf.structured(cfg)  # type: EvalBeamSearchNGramConfig
 
-    valid_decoding_modes = ["greedy", "beamsearch", "beamsearch_ngram"]
+    valid_decoding_modes = ["greedy_batch", "beamsearch", "beamsearch_ngram"]
     if cfg.decoding_mode not in valid_decoding_modes:
         raise ValueError(
             f"Given decoding_mode={cfg.decoding_mode} is invalid. Available options are :\n" f"{valid_decoding_modes}"
