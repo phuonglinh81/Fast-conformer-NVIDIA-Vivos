@@ -193,9 +193,10 @@ def beam_search_eval(
             packed_batch = torch.zeros(len(probs_batch), max(probs_lens), probs_batch[0].shape[-1], device='cpu')
 
             for prob_index in range(len(probs_batch)):
-                packed_batch[prob_index, : probs_lens[prob_index], :] = torch.tensor(
-                    probs_batch[prob_index], device=packed_batch.device, dtype=packed_batch.dtype
-                )
+              # Sử dụng probs_batch thay vì probs
+              packed_batch[prob_index, : probs_lens[prob_index], :] = probs_batch[prob_index][:probs_lens[prob_index]].clone().detach()
+
+              
 
             _, beams_batch = decoding.ctc_decoder_predictions_tensor(
                 packed_batch,
