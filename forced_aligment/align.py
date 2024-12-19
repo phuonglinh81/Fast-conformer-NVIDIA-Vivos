@@ -244,8 +244,12 @@ def main(cfg: AlignmentConfig):
             "model_stride_in_secs": model_stride_in_secs,
             "tokens_per_chunk": tokens_per_chunk,
         }
-    # get start and end line IDs of batches
-    starts, ends = get_batch_starts_ends(cfg.manifest_filepath, cfg.batch_size)
+
+    if cfg.manifest_filepath:
+        starts, ends = get_batch_starts_ends(cfg.manifest_filepath, cfg.batch_size)
+    else:
+        # Nếu chỉ xử lý một tệp âm thanh duy nhất
+        starts, ends = [0], [1]  # Chỉ có một dòng dữ liệu
 
     # init output_timestep_duration = None and we will calculate and update it during the first batch
     output_timestep_duration = None
@@ -258,7 +262,16 @@ def main(cfg: AlignmentConfig):
 
     # get alignment and save in CTM batch-by-batch
     for start, end in zip(starts, ends):
-        manifest_lines_batch = get_manifest_lines_batch(cfg.manifest_filepath, start, end)
+
+        if cfg.manifest_filepath:
+            manifest_lines_batch = get_manifest_lines_batch(cfg.manifest_filepath, start, end)
+        else:
+            # Nếu không có manifest, chỉ sử dụng một tệp âm thanh
+            manifest_lines_batch = [
+                {
+                    "audio_filepath": "/path/to/audio.wav",
+                }
+            ]
 
         (log_probs_batch, y_batch, T_batch, U_batch, utt_obj_batch, output_timestep_duration,) = get_batch_variables(
             manifest_lines_batch,
