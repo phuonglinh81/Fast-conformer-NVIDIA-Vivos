@@ -18,6 +18,7 @@ import os
 from dataclasses import dataclass, field, is_dataclass
 from pathlib import Path
 from typing import List, Optional
+import json 
 
 import torch
 from omegaconf import OmegaConf
@@ -73,7 +74,8 @@ class AlignmentConfig:
     model_path: Optional[str] = None
     manifest_filepath: Optional[str] = None
     output_dir: Optional[str] = None
-
+    audio_filepath: Optional[str] = None
+    
     # General configs
     align_using_pred_text: bool = False
     transcribe_device: Optional[str] = None
@@ -105,6 +107,18 @@ def main(cfg: AlignmentConfig):
 
     if is_dataclass(cfg):
         cfg = OmegaConf.structured(cfg)
+
+
+    # Handle single audio file case by creating a temporary manifest
+    if cfg.audio_filepath:
+        temp_manifest = os.path.join(cfg.output_dir, "temp_manifest.json")
+        os.makedirs(cfg.output_dir, exist_ok=True)
+        with open(temp_manifest, 'w') as f:
+            entry = {"audio_filepath": cfg.audio_filepath, "duration": None, "text": ""}
+            json.dump(entry, f)
+            f.write("\n")
+        cfg.manifest_filepath = temp_manifest
+
 
     # Validate config
     if cfg.model_path is None and cfg.pretrained_name is None:
@@ -145,11 +159,21 @@ def main(cfg: AlignmentConfig):
             )
 
     # Validate manifest contents
-    if not is_entry_in_all_lines(cfg.manifest_filepath, "audio_filepath"):
-        raise RuntimeError(
-            "At least one line in cfg.manifest_filepath does not contain an 'audio_filepath' entry. "
-            "All lines must contain an 'audio_filepath' entry."
-        )
+    # if not is_entry_in_all_lines(cfg.manifest_filepath, "audio_filepath"):
+    #     raise RuntimeError(
+    #         "At least one line in cfg.manifest_filepath does not contain an 'audio_filepath' entry. "
+    #         "All lines must contain an 'audio_filepath' entry."
+    #     )
+
+
+    if cfg.manifest_filepath is None and cfg.audio_filepath is None:
+        raise ValueError("Either cfg.manifest_filepath or cfg.audio_filepath must be specified")
+
+    if cfg.manifest_filepath is not None:
+        if not is_entry_in_all_lines(cfg.manifest_filepath, "audio_filepath"):
+            raise ValueError("Manifest file must contain 'audio_filepath' in every line")
+
+
 
     if cfg.align_using_pred_text:
         if is_entry_in_any_lines(cfg.manifest_filepath, "pred_text"):
@@ -247,9 +271,11 @@ def main(cfg: AlignmentConfig):
 
     if cfg.manifest_filepath:
         starts, ends = get_batch_starts_ends(cfg.manifest_filepath, cfg.batch_size)
+    elif hasattr(cfg, 'audio_filepath'):
+        starts, ends = [0], [1]  # Chỉ xử lý một dòng duy nhất
     else:
-        # Nếu chỉ xử lý một tệp âm thanh duy nhất
-        starts, ends = [0], [1]  # Chỉ có một dòng dữ liệu
+        raise ValueError("Either cfg.manifest_filepath or cfg.audio_filepath must be provided")
+
 
     # init output_timestep_duration = None and we will calculate and update it during the first batch
     output_timestep_duration = None
@@ -265,13 +291,16 @@ def main(cfg: AlignmentConfig):
 
         if cfg.manifest_filepath:
             manifest_lines_batch = get_manifest_lines_batch(cfg.manifest_filepath, start, end)
-        else:
-            # Nếu không có manifest, chỉ sử dụng một tệp âm thanh
+        elif hasattr(cfg, 'audio_filepath'):
             manifest_lines_batch = [
                 {
-                    "audio_filepath": "/path/to/audio.wav",
+                    "audio_filepath": cfg.audio_filepath,
+                    "text": "",  # Hoặc để trống nếu dùng pred_text
                 }
             ]
+        else:
+            raise ValueError("Manifest or audio file path must be provided")
+
 
         (log_probs_batch, y_batch, T_batch, U_batch, utt_obj_batch, output_timestep_duration,) = get_batch_variables(
             manifest_lines_batch,
